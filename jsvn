@@ -127,7 +127,42 @@ def get_config():
             'pager': 'less -FRX',
             'use_pager': True,
             'use_color': True,
-            'aliases': {},
+            'aliases': {
+                # default Subversion aliases
+                'praise': 'blame',
+                'annotate': 'blame',
+                'ann': 'blame',
+                'cl': 'changelist',
+                'co': 'checkout',
+                'ci': 'commit',
+                'cp': 'copy',
+                'del': 'delete',
+                'remove': 'delete',
+                'rm': 'delete',
+                'di': 'diff',
+                '?': 'help',
+                'h': 'help',
+                'ls': 'list',
+                'mv': 'move',
+                'rename': 'move',
+                'ren': 'move',
+                'pdel': 'propdel',
+                'pd': 'propdel',
+                'pedit': 'propedit',
+                'pe': 'propedit',
+                'pget': 'propget',
+                'pg': 'propget',
+                'plist': 'proplist',
+                'pl': 'proplist',
+                'pset': 'propset',
+                'ps': 'propset',
+                'stat': 'status',
+                'st': 'status',
+                'sw': 'switch',
+                'up': 'update',
+                # default jsvn aliases
+                'tags': 'tag',
+                'branches': 'branch'},
             'svn': '',
             }
     pth = os.path.expanduser('~/.jsvn')
@@ -732,14 +767,8 @@ def main(argv):
     using_color = sys.stdout.isatty() and config['use_color']
     if sys.stdout.isatty() and config['use_pager']:
         if (len(argv) >= 1 and argv[0] in
-                ('blame', 'praise', 'annotate', 'ann',
-                        'cat',
-                        'diff', 'di',
-                        'help',
-                        'list', 'ls',
-                        'log',
-                        'propget', 'pget', 'pg',
-                        'proplist', 'plist', 'pl')):
+                ('blame', 'cat', 'diff', 'help', 'list', 'log',
+                    'propget', 'proplist')):
             pager = config['pager']
             if 'PAGER' in os.environ and os.environ['PAGER'] != '':
                 pager = os.environ['PAGER']
@@ -754,26 +783,19 @@ def main(argv):
     handlers = {
             'add': add,
             'branch': branch,
-            'branches': branch,
             'externals': externals,
             'switch': switch,
-            'sw': switch,
             'merge': merge,
             'tag': tag,
-            'tags': tag,
             'diff': diff,
-            'di': diff,
             'log': log,
             'root': root,
-            'up': update,
             'update': update,
             'url' : url,
             'watch-lock': watch_lock,
             'users': users,
             'binaries': binaries,
             'lockable': lockable,
-            'st': status,
-            'stat': status,
             'status': status,
             }
 
