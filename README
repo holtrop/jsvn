@@ -60,9 +60,10 @@ Implemented subcommands:
      - this currently only works with changes to already-versioned files
     list:
      - show a list of all stash objects
-    pop:
-     - apply the stash object back to the working copy
+    pop [id]:
+     - apply the stash object <id> back to the working copy
      - the stash object is removed if it was successfully applied
+     - <id> defaults to the newest stash object created
     show [id]:
      - display the diff stored in stash with ID <id>
 

@@ -62,9 +62,10 @@
 #      - this currently only works with changes to already-versioned files
 #     list:
 #      - show a list of all stash objects
-#     pop:
-#      - apply the stash object back to the working copy
+#     pop [id]:
+#      - apply the stash object <id> back to the working copy
 #      - the stash object is removed if it was successfully applied
+#      - <id> defaults to the newest stash object created
 #     show [id]:
 #      - display the diff stored in stash with ID <id>
 #
@@ -824,6 +825,8 @@ def stash(argv, svn, out):
         stash_ids = get_stash_ids(svn)
         if len(stash_ids) > 0:
             stash_idx = stash_ids[-1]
+            if len(argv) >= 3:
+                stash_idx = int(argv[2])
             stash_fname = get_stash_fname(svn, stash_idx)
             p = Popen([svn, 'patch', stash_fname], stdout=PIPE)
             filter_update(p.stdout, out)
