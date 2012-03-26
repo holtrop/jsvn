@@ -68,6 +68,7 @@
 #      - <id> defaults to the newest stash object created
 #     show [id]:
 #      - display the diff stored in stash with ID <id>
+#      - <id> defaults to the newest stash object created
 #     drop [id]:
 #      - delete stash object <id>
 #      - <id> defaults to the newest stash object created
@@ -843,9 +844,11 @@ def stash(argv, svn, out):
             out.write('No stashes to pop\n')
         os.chdir(owd)
     elif action == 'show':
-        if len(argv) >= 3:
-            stash_id = int(argv[2])
-            stash_ids = get_stash_ids(svn)
+        stash_ids = get_stash_ids(svn)
+        if len(stash_ids) > 0:
+            stash_id = stash_ids[-1]
+            if len(argv) >= 3:
+                stash_id = int(argv[2])
             if stash_id in stash_ids:
                 stash_fname = get_stash_fname(svn, stash_id)
                 fd = open(stash_fname, 'r')
@@ -855,7 +858,7 @@ def stash(argv, svn, out):
             else:
                 out.write('Invalid stash ID\n')
         else:
-            out.write('Usage: stash show <ID>\n')
+            out.write('No stashes to show\n')
     elif action == 'drop':
         stash_ids = get_stash_ids(svn)
         if len(stash_ids) > 0:
