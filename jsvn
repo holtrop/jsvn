@@ -816,7 +816,9 @@ def stash(argv, svn, out):
         if len(stash_ids) > 0:
             stash_idx = stash_ids[-1]
             stash_fname = get_stash_fname(svn, stash_idx)
-            rc = Popen([svn, 'patch', stash_fname]).wait()
+            p = Popen([svn, 'patch', stash_fname], stdout=PIPE)
+            filter_update(p.stdout, out)
+            rc = p.wait()
             if rc == 0:
                 os.unlink(stash_fname)
                 out.write('Popped stash %d\n' % stash_idx)
