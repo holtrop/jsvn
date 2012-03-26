@@ -50,6 +50,19 @@ Implemented subcommands:
   - with --status, prepended '*' for those with svn:needs-lock set
  externals
   - print a list of the externals in the repository
+ stash [command]
+  - allow temporarily saving changes to the working copy without committing
+  - the stashes behaves as a "stack" where "save" pushes a new stash object
+    and "pop" pops the newest one from the top of the stack
+  commands:
+    save (default if not specified):
+     - save changes as a "stash" object and revert them from working copy
+     - this currently only works with changes to already-versioned files
+    list:
+     - show a list of all stash objects
+    pop:
+     - apply the stash object back to the working copy
+     - the stash object is removed if it was successfully applied
 
 The following subcommands are executed using their native handler, but
 have their output simplified and/or colorized:

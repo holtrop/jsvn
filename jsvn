@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
 # Josh's SVN wrapper script
-# 
+#
 # This wrapper script to Subversion supplements normal svn behavior by
 # adding additional functionality or modifying the output of the default
 # svn subcommands. Much of the functionality implemented here was inspired
 # by the way that git works.
-# 
+#
 # It is recommended to put this script in your $PATH as 'jsvn' or something
 # other than 'svn' and to make an alias svn='jsvn'.
 # For example, this .bash_aliases stanza will check if 'jsvn' is in your
@@ -14,7 +14,7 @@
 #   if [[ "$(which jsvn 2>/dev/null)" != "" ]]; then
 #       alias svn='jsvn'
 #   fi
-# 
+#
 # Implemented subcommands:
 #  add <file>...
 #   - add files as usual; add recursive contents of directories
@@ -52,20 +52,33 @@
 #   - with --status, prepended '*' for those with svn:needs-lock set
 #  externals
 #   - print a list of the externals in the repository
-# 
+#  stash [command]
+#   - allow temporarily saving changes to the working copy without committing
+#   - the stashes behaves as a "stack" where "save" pushes a new stash object
+#     and "pop" pops the newest one from the top of the stack
+#   commands:
+#     save (default if not specified):
+#      - save changes as a "stash" object and revert them from working copy
+#      - this currently only works with changes to already-versioned files
+#     list:
+#      - show a list of all stash objects
+#     pop:
+#      - apply the stash object back to the working copy
+#      - the stash object is removed if it was successfully applied
+#
 # The following subcommands are executed using their native handler, but
 # have their output simplified and/or colorized:
 #  - diff
 #  - log
 #  - status
 #  - update
-# 
+#
 # If the subcommand name begins with two leading underscores ("__"), the
 # underscores will be stripped and the command will be handled by native
 # Subversion without any jsvn processing.
-# 
+#
 # Configuration:
-# 
+#
 # jsvn will execute the file ~/.jsvn, if it exists, as a Python script.
 # Variables written to will be used as configuration directives.
 # Available configuration directives:
@@ -76,15 +89,15 @@
 #   aliases['XXX']: A string or list defining the alias 'XXX'. A string
 #              can be used if the alias expands to a single argument. A
 #              list must be used to pass multiple arguments to svn.
-# 
+#
 # Configuration Examples:
 #   pager = 'less -FRXi' # enable case-insensitive searching in less
 #   aliases['revert'] = ['revert', '-R'] # default to recursive reverts
 #   aliases['s'] = ['status', '--ignore-externals']
 #   aliases['status'] = '__status' # ignore jsvn processing of status command
-# 
+#
 # Author: Josh Holtrop
-# 
+#
 # History:
 #   v1.0 - functional release on github
 
@@ -265,6 +278,13 @@ def getSVNRoot(svn):
             return '/'.join(parts[:i])
     return ''
 
+def get_svn_wc_root(svn):
+    for line in Popen([svn, 'info'], stdout=PIPE).communicate()[0].split('\n'):
+        m = re.match(r'Working Copy Root Path: (.*)$', line)
+        if m is not None:
+            return m.group(1)
+    return ''
+
 def getSVNRelPath(svn):
     url = getSVNURL(svn)
     parts = url.split('/')
@@ -372,6 +392,32 @@ def descendant_path(child, parent):
         if child[len(parent)] == '/':
             return True
     return False
+
+def get_stashes_dir(svn):
+    stashes_dir = get_svn_wc_root(svn) + '/.svn/stashes'
+    if not os.path.isdir(stashes_dir):
+        os.mkdir(stashes_dir)
+    return stashes_dir
+
+def get_stash_ids(svn):
+    stashes_dir = get_stashes_dir(svn)
+    stash_files = os.listdir(stashes_dir)
+    stash_ids = {}
+    for sf in stash_files:
+        m = re.match('stash\.(\d+)$', sf)
+        if m is not None:
+            stash_ids[int(m.group(1))] = 1
+    return sorted(stash_ids.keys())
+
+def get_stash_fname(svn, idx):
+    return get_stashes_dir(svn) + '/stash.%d' % idx
+
+def get_next_stash_idx(svn):
+    stash_ids = get_stash_ids(svn)
+    idx = 1
+    if len(stash_ids) > 0:
+        idx = stash_ids[-1] + 1
+    return idx
 
 ###########################################################################
 # Subcommand Handlers                                                     #
@@ -745,6 +791,41 @@ def externals(argv, svn, out):
                 out.write(line[8:])
     return RET_OK
 
+def stash(argv, svn, out):
+    action = 'save'
+    if len(argv) >= 2:
+        if not argv[1].startswith('-'):
+            action = argv[1]
+    if action == 'save':
+        stash_idx = get_next_stash_idx(svn)
+        stash_fname = get_stash_fname(svn, stash_idx)
+        fh = open(stash_fname, 'w')
+        Popen([svn, 'diff'], stdout=fh).wait()
+        fh.close()
+        Popen([svn, 'revert', '--depth=infinity', get_svn_wc_root(svn)],
+                stdout=PIPE).wait()
+        out.write('Created stash %d\n' % stash_idx)
+    elif action == 'list':
+        stash_ids = get_stash_ids(svn)
+        for si in reversed(stash_ids):
+            out.write('%d\n' % si)
+    elif action == 'pop':
+        stash_ids = get_stash_ids(svn)
+        if len(stash_ids) > 0:
+            stash_idx = stash_ids[-1]
+            stash_fname = get_stash_fname(svn, stash_idx)
+            rc = Popen([svn, 'patch', stash_fname]).wait()
+            if rc == 0:
+                os.unlink(stash_fname)
+                out.write('Popped stash %d\n' % stash_idx)
+            else:
+                out.write('Error popping stash %d\n' % stash_idx)
+        else:
+            out.write('No stashes to pop\n')
+    else:
+        out.write('Unknown action "%s"\n' % action)
+    return RET_OK
+
 def root(argv, svn, out):
     out.write(getSVNRoot(svn) + '\n')
     return RET_OK
@@ -797,6 +878,7 @@ def main(argv):
             'binaries': binaries,
             'lockable': lockable,
             'status': status,
+            'stash': stash,
             }
 
     do_normal_exec = True
