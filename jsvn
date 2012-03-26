@@ -826,6 +826,20 @@ def stash(argv, svn, out):
                 out.write('Error popping stash %d\n' % stash_idx)
         else:
             out.write('No stashes to pop\n')
+    elif action == 'show':
+        if len(argv) >= 3:
+            stash_id = int(argv[2])
+            stash_ids = get_stash_ids(svn)
+            if stash_id in stash_ids:
+                stash_fname = get_stash_fname(svn, stash_id)
+                fd = open(stash_fname, 'r')
+                for line in iter(fd.readline, ''):
+                    colordiff(out, line)
+                fd.close()
+            else:
+                out.write('Invalid stash ID\n')
+        else:
+            out.write('Usage: stash show <ID>\n')
     else:
         out.write('Unknown action "%s"\n' % action)
     return RET_OK
