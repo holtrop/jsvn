@@ -66,6 +66,9 @@ Implemented subcommands:
      - <id> defaults to the newest stash object created
     show [id]:
      - display the diff stored in stash with ID <id>
+    drop [id]:
+     - delete stash object <id>
+     - <id> defaults to the newest stash object created
 
 The following subcommands are executed using their native handler, but
 have their output simplified and/or colorized:
