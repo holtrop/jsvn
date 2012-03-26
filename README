@@ -63,6 +63,8 @@ Implemented subcommands:
     pop:
      - apply the stash object back to the working copy
      - the stash object is removed if it was successfully applied
+    show [id]:
+     - display the diff stored in stash with ID <id>
 
 The following subcommands are executed using their native handler, but
 have their output simplified and/or colorized:
