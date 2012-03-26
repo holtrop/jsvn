@@ -850,6 +850,17 @@ def stash(argv, svn, out):
                 out.write('Invalid stash ID\n')
         else:
             out.write('Usage: stash show <ID>\n')
+    elif action == 'drop':
+        stash_ids = get_stash_ids(svn)
+        if len(stash_ids) > 0:
+            stash_id = stash_ids[-1]
+            if len(argv) >= 3:
+                stash_id = int(argv[2])
+            stash_fname = get_stash_fname(svn, stash_id)
+            os.unlink(stash_fname)
+            out.write('Dropped stash %d\n' % stash_id)
+        else:
+            out.write('No stashes to drop\n')
     else:
         out.write('Unknown action "%s"\n' % action)
     return RET_OK
