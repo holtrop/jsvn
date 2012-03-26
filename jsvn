@@ -363,10 +363,12 @@ def filter_update(pout, out):
                 ansi_color(out, 'green')
             elif action == 'D':
                 ansi_color(out, 'red')
+            elif action == 'U':
+                ansi_color(out, 'cyan')
             elif action == 'C':
                 ansi_color(out, 'yellow')
             elif action == 'G':
-                ansi_color(out, 'cyan')
+                ansi_color(out, 'magenta')
             out.write(line)
             ansi_reset(out)
             continue
