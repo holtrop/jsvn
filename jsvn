@@ -799,19 +799,26 @@ def stash(argv, svn, out):
         if not argv[1].startswith('-'):
             action = argv[1]
     if action == 'save':
+        owd = os.getcwd()
+        wc_dir = get_svn_wc_root(svn)
+        os.chdir(wc_dir)
         stash_idx = get_next_stash_idx(svn)
         stash_fname = get_stash_fname(svn, stash_idx)
         fh = open(stash_fname, 'w')
         Popen([svn, 'diff'], stdout=fh).wait()
         fh.close()
-        Popen([svn, 'revert', '--depth=infinity', get_svn_wc_root(svn)],
+        Popen([svn, 'revert', '--depth=infinity', '.'],
                 stdout=PIPE).wait()
+        os.chdir(owd)
         out.write('Created stash %d\n' % stash_idx)
     elif action == 'list':
         stash_ids = get_stash_ids(svn)
         for si in reversed(stash_ids):
             out.write('%d\n' % si)
     elif action == 'pop':
+        owd = os.getcwd()
+        wc_dir = get_svn_wc_root(svn)
+        os.chdir(wc_dir)
         stash_ids = get_stash_ids(svn)
         if len(stash_ids) > 0:
             stash_idx = stash_ids[-1]
@@ -826,6 +833,7 @@ def stash(argv, svn, out):
                 out.write('Error popping stash %d\n' % stash_idx)
         else:
             out.write('No stashes to pop\n')
+        os.chdir(owd)
     elif action == 'show':
         if len(argv) >= 3:
             stash_id = int(argv[2])
