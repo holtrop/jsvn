@@ -115,7 +115,7 @@ import time
 from subprocess import *
 import traceback
 
-STATUS_LINE_REGEX = r'[ACDIMRX?!~ ][CM ][L ][+ ][SX ][KOTB ]'
+STATUS_LINE_REGEX = r'[ACDIMRX?!~ ][CM ][L ][+ ][SX ][KOTB ]..(.+)'
 
 ###########################################################################
 # Subcommand Handler Return Values                                        #
@@ -826,13 +826,33 @@ def stash(argv, svn, out):
         if found_binary_file:
             out.write('Error: cannot stash with changes to binary files\n')
             os.unlink(stash_fname)
-        elif wrote_something:
-            Popen([svn, 'revert', '--depth=infinity', '.'],
-                    stdout=PIPE).wait()
-            out.write('Created stash %d\n' % stash_idx)
-        else:
+        elif not wrote_something:
             out.write('Error: no changes to stash!\n')
             os.unlink(stash_fname)
+        else:
+            # the stash is good, now revert the working copy changes
+            status_lines = Popen([svn, 'status', '--ignore-externals'],
+                    stdout=PIPE).communicate()[0].split('\n')
+            for line in reversed(status_lines):
+                m = re.match(STATUS_LINE_REGEX, line)
+                if m is not None:
+                    target = m.group(1)
+                    action = line[0]
+                    prop_action = line[1]
+                    if (action in ('A', 'M', 'D')
+                            or prop_action == 'M'):
+                        Popen([svn, 'revert', target], stdout=PIPE).wait()
+                        if action == 'A':
+                            # a file was added, so to stash it we must remove
+                            # it in addition to reverting the add
+                            if os.path.isfile(target):
+                                os.unlink(target)
+                            elif os.path.isdir(target):
+                                if len(os.listdir(target)) == 0:
+                                    os.rmdir(target)
+                            else:
+                                raise ValueError('unhandled target type')
+            out.write('Created stash %d\n' % stash_idx)
         os.chdir(owd)
     elif action == 'list':
         stash_ids = get_stash_ids(svn)
