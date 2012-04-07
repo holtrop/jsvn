@@ -877,8 +877,10 @@ def stash(argv, svn, out):
                 for a in num_actions:
                     if num_actions[a] > 0:
                         fh.write('#info: %s: %d\n' % (a, num_actions[a]))
-            fh.write('#info: -%d\n' % n_deletions)
-            fh.write('#info: +%d\n' % n_insertions)
+            if n_deletions > 0:
+                fh.write('#info: -%d\n' % n_deletions)
+            if n_insertions > 0:
+                fh.write('#info: +%d\n' % n_insertions)
             now = datetime.datetime.now()
             fh.write('#info: @%04d-%02d-%02d %02d:%02d\n' %
                     (now.year, now.month, now.day, now.hour, now.minute))
@@ -888,7 +890,58 @@ def stash(argv, svn, out):
     elif action == 'list':
         stash_ids = get_stash_ids(svn)
         for si in reversed(stash_ids):
-            out.write('%d\n' % si)
+            ins_text = ''
+            del_text = ''
+            add_text = ''
+            modify_text = ''
+            delete_text = ''
+            date = ''
+            stash_fname = get_stash_fname(svn, si)
+            fh = open(stash_fname, 'r')
+            for line in iter(fh.readline, ''):
+                m = re.match(r'#info: (.*)$', line)
+                if m is not None:
+                    info = m.group(1)
+                    if info.startswith('A:'):
+                        add_text = info
+                    elif info.startswith('M:'):
+                        modify_text = info
+                    elif info.startswith('D:'):
+                        delete_text = info
+                    elif info.startswith('-'):
+                        del_text = info
+                    elif info.startswith('+'):
+                        ins_text = info
+                    elif info.startswith('@'):
+                        date = info[1:]
+            fh.close()
+            out.write('%-3d' % si)
+            elements = [
+                    (date, 'cyan'),
+                    (add_text, 'green'),
+                    (modify_text, 'yellow'),
+                    (delete_text, 'red'),
+                    ]
+            for elem, color in elements:
+                if elem != '':
+                    out.write(' ')
+                    ansi_color(out, color)
+                    out.write(elem)
+                    ansi_reset(out)
+            if del_text != '' or ins_text != '':
+                out.write(' (')
+                if del_text != '':
+                    ansi_color(out, 'red')
+                    out.write(del_text)
+                    ansi_reset(out)
+                if ins_text != '':
+                    if del_text != '':
+                        out.write(' ')
+                    ansi_color(out, 'green')
+                    out.write(ins_text)
+                    ansi_reset(out)
+                out.write(')')
+            out.write('\n')
     elif action == 'pop':
         owd = os.getcwd()
         wc_dir = get_svn_wc_root(svn)
