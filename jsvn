@@ -814,18 +814,24 @@ def stash(argv, svn, out):
         fh = open(stash_fname, 'w')
         proc = Popen([svn, 'diff'], stdout=PIPE)
         wrote_something = False
+        found_binary_file = False
         for line in iter(proc.stdout.readline, ''):
-            if len(line) > 0:
-                wrote_something = True
+            if re.match(r'Cannot.display..file.marked.as.a.binary.type',
+                    line, flags=re.I):
+                found_binary_file = True
             fh.write(line)
+            wrote_something = True
         proc.wait()
         fh.close()
-        if wrote_something:
+        if found_binary_file:
+            out.write('Error: cannot stash with changes to binary files\n')
+            os.unlink(stash_fname)
+        elif wrote_something:
             Popen([svn, 'revert', '--depth=infinity', '.'],
                     stdout=PIPE).wait()
             out.write('Created stash %d\n' % stash_idx)
         else:
-            out.write('Nothing to stash!\n')
+            out.write('Error: no changes to stash!\n')
             os.unlink(stash_fname)
         os.chdir(owd)
     elif action == 'list':
