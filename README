@@ -16,6 +16,12 @@ path and automatically alias 'svn' to it if so:
 Implemented subcommands:
  add <file>...
   - add files as usual; add recursive contents of directories
+ bisect <operation>
+  operations:
+   - init  initialize a new bisect operation
+   - bad   mark the current revision as bad - containing the change sought
+   - good  mark the current revision as good - older than the change sought
+   - reset terminate the bisect operation and return to the original revision
  branch[es] [[-d] <branch_name>]
   - with no arguments, list branches with '*' by the current one
   - with -d, delete <branch>

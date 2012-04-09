@@ -18,6 +18,12 @@
 # Implemented subcommands:
 #  add <file>...
 #   - add files as usual; add recursive contents of directories
+#  bisect <operation>
+#   operations:
+#    - init  initialize a new bisect operation
+#    - bad   mark the current revision as bad - containing the change sought
+#    - good  mark the current revision as good - older than the change sought
+#    - reset terminate the bisect operation and return to the original revision
 #  branch[es] [[-d] <branch_name>]
 #   - with no arguments, list branches with '*' by the current one
 #   - with -d, delete <branch>
@@ -299,6 +305,13 @@ def get_svn_wc_root(svn):
             return m.group(1)
     return ''
 
+def get_svn_wc_revision(svn):
+    for line in Popen([svn, 'info'], stdout=PIPE).communicate()[0].split('\n'):
+        m = re.match(r'Revision: (\d+)$', line)
+        if m is not None:
+            return int(m.group(1))
+    return 0
+
 def getSVNRelPath(svn):
     url = getSVNURL(svn)
     parts = url.split('/')
@@ -462,6 +475,93 @@ def add(argv, svn, out):
                 found_one = True
         if not found_one:
             Popen([svn, 'add', path], stdout=out).wait()
+    return RET_OK
+
+def bisect(argv, svn, out):
+    def usage():
+        sys.stderr.write('''Usage: bisect <operation>
+Operations:
+    init    initialize a new bisect operation
+    bad     mark the current revision as bad - containing the change sought
+    good    mark the current revision as good - older than the change sought
+    reset   terminate the bisect operation and return to the original revision
+''')
+        return RET_ERR
+    if len(argv) < 2:
+        return usage()
+    action = argv[1]
+    if action not in ('init', 'bad', 'good', 'reset'):
+        return usage()
+    wc_root = get_svn_wc_root(svn)
+    bisect_dir = '%s/.svn/bisect' % wc_root
+    def get_rev_from_file(fname):
+        path = '%s/%s' % (bisect_dir, fname)
+        if not os.path.exists(path):
+            return -1
+        fh = open(path, 'r')
+        line = fh.readline()
+        fh.close()
+        m = re.match('(\d+)$', line)
+        if m is None:
+            return -2
+        return int(m.group(1))
+    def write_rev_to_file(fname, rev):
+        fh = open('%s/%s' % (bisect_dir, fname), 'w')
+        fh.write(str(rev) + '\n')
+        fh.close()
+    def rm_bisect_files():
+        for f in os.listdir(bisect_dir):
+            os.unlink('%s/%s' % (bisect_dir, f))
+    def get_revs_between(start, end):
+        revs = []
+        proc = Popen([svn, 'log', '-r%d:%d' % (start, end)], stdout=PIPE)
+        for line in iter(proc.stdout.readline, ''):
+            m = re.match(r'r(\d+).*\|.*\|.*\|', line)
+            if m is not None:
+                rev = int(m.group(1))
+                if rev > start and rev < end:
+                    revs.append(rev)
+        return revs
+    def do_bisect():
+        good_rev = get_rev_from_file('good')
+        bad_rev = get_rev_from_file('bad')
+        if good_rev < 0 or bad_rev < 0:
+            return
+        revs = get_revs_between(good_rev, bad_rev)
+        if len(revs) < 1:
+            if get_svn_wc_revision(svn) != bad_rev:
+                update(['update', '-r%d' % bad_rev], svn, out)
+            out.write('The first bad revision is %d\n' % get_svn_wc_revision(svn))
+            return
+        rev = revs[len(revs) / 2]
+        update(['update', '-r%d' % rev], svn, out)
+        out.write('Bisect: inspecting revision %d, %d revisions remaining\n'
+                % (rev, len(revs)))
+    def init_err():
+        sys.stderr.write('Error: did you bisect init first?\n')
+        return RET_ERR
+    if action == 'init':
+        if not os.path.exists(bisect_dir):
+            os.mkdir(bisect_dir)
+        rm_bisect_files()
+        write_rev_to_file('start', get_svn_wc_revision(svn))
+        out.write('Initialized for bisect\n')
+    elif action == 'bad':
+        if get_rev_from_file('start') < 0:
+            return init_err()
+        write_rev_to_file('bad', get_svn_wc_revision(svn))
+        do_bisect()
+    elif action == 'good':
+        if get_rev_from_file('start') < 0:
+            return init_err()
+        write_rev_to_file('good', get_svn_wc_revision(svn))
+        do_bisect()
+    elif action == 'reset':
+        rev = get_rev_from_file('start')
+        if rev < 0:
+            return init_err()
+        rm_bisect_files()
+        update(['update', '-r%d' % rev], svn, out)
     return RET_OK
 
 def branch(argv, svn, out):
@@ -1051,6 +1151,7 @@ def main(argv):
 
     handlers = {
             'add': add,
+            'bisect': bisect,
             'branch': branch,
             'externals': externals,
             'switch': switch,
