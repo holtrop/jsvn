@@ -237,7 +237,7 @@ def ansi_reset(out):
         out.write('\033[0m')
 
 def colordiff(out, line):
-    line = line.strip()
+    line = line.rstrip()
     if re.match(r'Index:\s', line):
         ansi_color(out, 'yellow')
         out.write(line)
@@ -396,7 +396,7 @@ def filter_update(pout, out):
                 ansi_color(out, 'yellow')
             elif action == 'G':
                 ansi_color(out, 'magenta')
-            out.write(line.strip())
+            out.write(line.rstrip())
             ansi_reset(out)
             out.write('\n')
             continue
@@ -810,7 +810,7 @@ def log(argv, svn, out):
     mode = 'normal'
     pout = Popen([svn] + argv, stdout=PIPE).stdout
     for line in iter(pout.readline, ''):
-        line = line.strip()
+        line = line.rstrip()
         if mode == 'normal' and re.match(r'(r\d+)\s+\|', line):
             parts = line.split('|')
             if len(parts) == 4:
@@ -880,7 +880,7 @@ def status(argv, svn, out):
     external_printed = True
     pout = Popen([svn] + argv, stdout=PIPE).stdout
     for line in iter(pout.readline, ''):
-        line = line.strip()
+        line = line.rstrip()
         m = re.match(r"Performing status on external item at '(.*)':", line)
         if m is not None:
             external = m.group(1)
