@@ -1022,7 +1022,8 @@ def main(argv):
     config = get_config()
     realsvn = config['svn'] if config['svn'] != '' else findInPath('svn')
     out = sys.stdout
-    argv = apply_aliases(config, argv)
+    if len(argv) > 0:
+        argv = apply_aliases(config, argv)
     using_pager = False
     using_color = sys.stdout.isatty() and config['use_color']
     if sys.stdout.isatty() and config['use_pager']:
