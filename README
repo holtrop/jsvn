@@ -100,12 +100,18 @@ Available configuration directives:
   aliases['XXX']: A string or list defining the alias 'XXX'. A string
              can be used if the alias expands to a single argument. A
              list must be used to pass multiple arguments to svn.
+             An arbitrary shell command can be specified by beginning the
+             alias definition with a '!' character. In this case, the shell
+             variable $0 will contain the subcommand specified by the user
+             on the command line, and $1, $2, ... will contain any positional
+             parameters specified on the command line.
 
 Configuration Examples:
   pager = 'less -FRXi' # enable case-insensitive searching in less
   aliases['revert'] = ['revert', '-R'] # default to recursive reverts
   aliases['s'] = ['status', '--ignore-externals']
   aliases['status'] = '__status' # ignore jsvn processing of status command
+  aliases['init'] = '!svnadmin create $1'
 
 Author: Josh Holtrop
 
