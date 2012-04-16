@@ -1022,8 +1022,15 @@ def main(argv):
     config = get_config()
     realsvn = config['svn'] if config['svn'] != '' else findInPath('svn')
     out = sys.stdout
+    orig_subcommand = argv[0] if len(argv) > 0 else ''
     if len(argv) > 0:
         argv = apply_aliases(config, argv)
+    if len(argv) > 0 and argv[0].startswith('!'):
+        # execute an external program
+        argv[0] = argv[0][1:]       # strip leading '!'
+        argv = [argv[0], orig_subcommand] + argv[1:]
+        Popen(argv, shell=True).wait()
+        return 0
     using_pager = False
     using_color = sys.stdout.isatty() and config['use_color']
     if sys.stdout.isatty() and config['use_pager']:
