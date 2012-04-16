@@ -116,4 +116,10 @@ Configuration Examples:
 Author: Josh Holtrop
 
 History:
-  v1.0 - functional release on github
+  v1.1 - 2012-04-16
+    - add stash subcommand
+    - add bisect subcommand
+    - add support for aliases expanding to arbitrary shell commands
+    - bugfix: remove trailing blank lines on colorized output sent to pager
+  v1.0 - 2012-03-22
+    - functional release on github
