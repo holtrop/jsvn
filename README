@@ -63,7 +63,7 @@ Implemented subcommands:
   commands:
     save (default if not specified):
      - save changes as a "stash" object and revert them from working copy
-     - this currently only works with changes to already-versioned files
+     - this only works with text files, not binary files
     list:
      - show a list of all stash objects
     pop [id]:
