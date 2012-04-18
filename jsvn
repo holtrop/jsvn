@@ -786,14 +786,19 @@ def status(argv, svn, out):
             external_printed = True
         if re.match(STATUS_LINE_REGEX, line):
             action = line[0]
-            if action == 'A' or action == 'M':
+            prop_action = line[1]
+            if action == 'A':
                 ansi_color(out, 'green')
+            elif action == 'M':
+                ansi_color(out, 'cyan')
             elif action == 'C':
                 ansi_color(out, 'yellow')
             elif action == 'D':
                 ansi_color(out, 'red')
             elif action == 'R':
                 ansi_color(out, 'magenta')
+            elif action == ' ' and prop_action == 'M':
+                ansi_color(out, 'cyan')
             elif action == 'X':
                 continue            # don't print externals
             out.write(line)
