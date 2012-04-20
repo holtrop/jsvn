@@ -277,6 +277,7 @@ def filter_update(pout, out):
             any_external_printed = True
         if re.match(r'[ADUCGER ]{2}[B ][C ] ', line):
             action = line[0]
+            prop_action = line[1]
             if action == 'A':
                 ansi_color(out, 'green')
             elif action == 'D':
@@ -287,6 +288,9 @@ def filter_update(pout, out):
                 ansi_color(out, 'yellow')
             elif action == 'G':
                 ansi_color(out, 'magenta')
+            elif action == ' ':
+                if prop_action == 'U':
+                    ansi_color(out, 'cyan')
             out.write(line.rstrip())
             ansi_reset(out)
             out.write('\n')
