@@ -40,7 +40,24 @@ using_color = False
 ###########################################################################
 # Configuration                                                           #
 ###########################################################################
-def get_config():
+def read_config_file(config, path):
+    if os.path.exists(path):
+        fh = open(path, 'r')
+        script = fh.read()
+        fh.close()
+        try:
+            exec(script, config)
+        except:
+            sys.stderr.write('Configuration file error in "%s":\n' % path)
+            traceback.print_exception(sys.exc_info()[0], sys.exc_info()[1],
+                    None)
+            tb = traceback.extract_tb(sys.exc_info()[2])
+            for ent in tb[1:]:
+                lineno, fn = ent[1:3]
+                sys.stderr.write('  File "%s", line %d, in %s\n'
+                        % (path, lineno, fn))
+
+def get_config(svn):
     config = {
             'pager': 'less -FRX',
             'use_pager': True,
@@ -83,22 +100,13 @@ def get_config():
                 'branches': 'branch'},
             'svn': '',
             }
-    pth = os.path.expanduser('~/.jsvn')
-    if os.path.exists(pth):
-        fh = open(pth, 'r')
-        script = fh.read()
-        fh.close()
-        try:
-            exec(script, config)
-        except:
-            sys.stderr.write('Configuration file error in "%s":\n' % pth)
-            traceback.print_exception(sys.exc_info()[0], sys.exc_info()[1],
-                    None)
-            tb = traceback.extract_tb(sys.exc_info()[2])
-            for ent in tb[1:]:
-                lineno, fn = ent[1:3]
-                sys.stderr.write('  File "%s", line %d, in %s\n'
-                        % (pth, lineno, fn))
+
+    global_user_config_fname = os.path.expanduser('~/.jsvn')
+    read_config_file(config, global_user_config_fname)
+
+    wc_user_config_fname = get_svn_wc_root(svn) + '/.svn/jsvn'
+    read_config_file(config, wc_user_config_fname)
+
     return config
 
 def apply_aliases(config, argv):
@@ -1028,8 +1036,10 @@ def url(argv, svn, out):
 def main(argv):
     global using_color
 
-    config = get_config()
-    realsvn = config['svn'] if config['svn'] != '' else findInPath('svn')
+    realsvn = findInPath('svn')
+    config = get_config(realsvn)
+    if config['svn']:
+        realsvn = config['svn']
     out = sys.stdout
     orig_subcommand = argv[0] if len(argv) > 0 else ''
     if len(argv) > 0:
