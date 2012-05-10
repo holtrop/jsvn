@@ -90,9 +90,14 @@ Subversion without any jsvn processing.
 
 Configuration:
 
-jsvn will execute the file ~/.jsvn, if it exists, as a Python script.
-Variables written to will be used as configuration directives.
-Available configuration directives:
+jsvn will execute the files "~/.jsvn", and "$WCROOT/.svn/jsvn", in that
+order, if they exist, as Python scripts for the user to locally configure
+jsvn. Variables written to from within configuration scripts will be used
+as configuration directives to control jsvn's execution. jsvn's default
+settings or even user-specified settings can thus be overridden for a
+particular working copy by creating a "$WCROOT/.svn/jsvn" script.
+
+Available configuration variables:
   use_color: True or False to enable/disable colorization of svn output
   use_pager: True or False to enable/disable automatic piping of svn
              output to a pager program
@@ -105,6 +110,8 @@ Available configuration directives:
              variable $0 will contain the subcommand specified by the user
              on the command line, and $1, $2, ... will contain any positional
              parameters specified on the command line.
+  svn:       Specify the path to the native Subversion executable. If not
+             specified, the first 'svn' in $PATH will be used.
 
 Configuration Examples:
   pager = 'less -FRXi' # enable case-insensitive searching in less
@@ -116,6 +123,8 @@ Configuration Examples:
 Author: Josh Holtrop
 
 History:
+  v1.2 - in progress
+    - support working-copy-local jsvn configuration files
   v1.1 - 2012-04-16
     - add stash subcommand
     - add bisect subcommand
