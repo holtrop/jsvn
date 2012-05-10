@@ -188,7 +188,8 @@ def get_svn_root_url(svn):
     return ''
 
 def get_svn_wc_root(svn):
-    for line in Popen([svn, 'info'], stdout=PIPE).communicate()[0].split('\n'):
+    proc = Popen([svn, 'info'], stdout=PIPE, stderr=PIPE)
+    for line in proc.communicate()[0].split('\n'):
         m = re.match(r'Working Copy Root Path: (.*)$', line)
         if m is not None:
             return m.group(1)
