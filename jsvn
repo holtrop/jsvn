@@ -1120,6 +1120,15 @@ def main(argv):
     if config['svn']:
         realsvn = config['svn']
 
+    # set up execution environment for user-defined function aliases
+    def do(cmd, expand=True):
+        if type(cmd) == types.StringType:
+            cmd = [cmd]
+        do_cmd(cmd, realsvn, config, expand)
+    config['do'] = do
+    config['Popen'] = Popen
+    config['PIPE'] = PIPE
+
     do_cmd(argv, realsvn, config)
 
     return 0
