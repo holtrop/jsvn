@@ -110,6 +110,21 @@ Available configuration variables:
              variable $0 will contain the subcommand specified by the user
              on the command line, and $1, $2, ... will contain any positional
              parameters specified on the command line.
+             Starting with jsvn v1.2, user configuration scripts may define
+             python functions to be used as aliases. The execution
+             environment for these user-defined functions is limited but
+             does provide the following symbols:
+              - Popen, PIPE: passed from the subprocess module for arbitrary
+                command execution
+              - do(cmd, expand=True): the do() function allows the alias
+                function to execute a command within jsvn. 'cmd' should be
+                either a string if the command has no arguments, or a list
+                containing the command and all arguments. 'expand' is a
+                boolean flag determining whether user-defined aliases should
+                be used to expand the command. If an alias function invokes
+                do() with the same command that the alias function itself is
+                bound to, and expand is not set to False, then the alias
+                function will be called recursively!
   svn:       Specify the path to the native Subversion executable. If not
              specified, the first 'svn' in $PATH will be used.
 
@@ -119,12 +134,17 @@ Configuration Examples:
   aliases['s'] = ['status', '--ignore-externals']
   aliases['status'] = '__status' # ignore jsvn processing of status command
   aliases['init'] = '!svnadmin create $1'
+  def up_and_ctags(args):
+      do(args, expand=False) # do the actual update command
+      Popen(['ctags', '-R']).wait()
+  aliases['up'] = up_and_ctags
 
 Author: Josh Holtrop
 
 History:
   v1.2 - in progress
     - support working-copy-local jsvn configuration files
+    - support python functions as user-implemented aliases
     - bugfix: pager setting in config file overrides $PAGER environment
       variable instead of other way around
   v1.1 - 2012-04-16
