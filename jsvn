@@ -59,7 +59,7 @@ def read_config_file(config, path):
 
 def get_config(svn):
     config = {
-            'pager': 'less -FRX',
+            'pager': '',
             'use_pager': True,
             'use_color': True,
             'aliases': {
@@ -1056,9 +1056,12 @@ def main(argv):
         if (len(argv) >= 1 and argv[0] in
                 ('blame', 'cat', 'diff', 'help', 'list', 'log',
                     'propget', 'proplist')):
-            pager = config['pager']
-            if 'PAGER' in os.environ and os.environ['PAGER'] != '':
+            if config['pager'] != '':
+                pager = config['pager']
+            elif 'PAGER' in os.environ and os.environ['PAGER'] != '':
                 pager = os.environ['PAGER']
+            else:
+                pager = 'less -FRX'
             pager_proc = Popen(pager, shell=True, stdin=PIPE)
             out = pager_proc.stdin
             using_pager = True
