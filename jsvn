@@ -64,38 +64,6 @@ def get_config(svn):
             'use_pager': True,
             'use_color': True,
             'aliases': {
-                # default Subversion aliases
-                'praise': 'blame',
-                'annotate': 'blame',
-                'ann': 'blame',
-                'cl': 'changelist',
-                'co': 'checkout',
-                'ci': 'commit',
-                'cp': 'copy',
-                'del': 'delete',
-                'remove': 'delete',
-                'rm': 'delete',
-                'di': 'diff',
-                '?': 'help',
-                'h': 'help',
-                'ls': 'list',
-                'mv': 'move',
-                'rename': 'move',
-                'ren': 'move',
-                'pdel': 'propdel',
-                'pd': 'propdel',
-                'pedit': 'propedit',
-                'pe': 'propedit',
-                'pget': 'propget',
-                'pg': 'propget',
-                'plist': 'proplist',
-                'pl': 'proplist',
-                'pset': 'propset',
-                'ps': 'propset',
-                'stat': 'status',
-                'st': 'status',
-                'sw': 'switch',
-                'up': 'update',
                 # default jsvn aliases
                 'tags': 'tag',
                 'branches': 'branch'},
@@ -1054,6 +1022,43 @@ def do_cmd(argv, realsvn, config, expand=True):
             argv = [argv[0], orig_subcommand] + argv[1:]
             Popen(argv, shell=True).wait()
             return
+
+    # after processing user aliases, apply default Subversion aliases
+    svn_aliases = {
+            'praise': 'blame',
+            'annotate': 'blame',
+            'ann': 'blame',
+            'cl': 'changelist',
+            'co': 'checkout',
+            'ci': 'commit',
+            'cp': 'copy',
+            'del': 'delete',
+            'remove': 'delete',
+            'rm': 'delete',
+            'di': 'diff',
+            '?': 'help',
+            'h': 'help',
+            'ls': 'list',
+            'mv': 'move',
+            'rename': 'move',
+            'ren': 'move',
+            'pdel': 'propdel',
+            'pd': 'propdel',
+            'pedit': 'propedit',
+            'pe': 'propedit',
+            'pget': 'propget',
+            'pg': 'propget',
+            'plist': 'proplist',
+            'pl': 'proplist',
+            'pset': 'propset',
+            'ps': 'propset',
+            'stat': 'status',
+            'st': 'status',
+            'sw': 'switch',
+            'up': 'update',
+            }
+    if argv[0] in svn_aliases:
+        argv[0] = svn_aliases[argv[0]]
 
     out = sys.stdout
     using_pager = False
