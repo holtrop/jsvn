@@ -125,6 +125,8 @@ Author: Josh Holtrop
 History:
   v1.2 - in progress
     - support working-copy-local jsvn configuration files
+    - bugfix: pager setting in config file overrides $PAGER environment
+      variable instead of other way around
   v1.1 - 2012-04-16
     - add stash subcommand
     - add bisect subcommand
