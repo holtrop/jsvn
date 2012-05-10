@@ -174,7 +174,7 @@ def colordiff(out, line):
     out.write(line)
     out.write('\n')
 
-def findInPath(cmd):
+def find_in_path(cmd):
     path_entries = os.environ['PATH'].split(os.pathsep)
     for p in path_entries:
         full_path = os.path.join(p, cmd)
@@ -182,15 +182,15 @@ def findInPath(cmd):
             return full_path
     return ''
 
-def getSVNURL(svn):
+def get_svn_url(svn):
     for line in Popen([svn, 'info'], stdout=PIPE).communicate()[0].split('\n'):
         m = re.match(r'^URL:\s*(.*?)\s*$', line)
         if m is not None:
             return m.group(1)
     return ''
 
-def getSVNRoot(svn):
-    url = getSVNURL(svn)
+def get_svn_root_url(svn):
+    url = get_svn_url(svn)
     parts = url.split('/')
     for i in range(0, len(parts)):
         if parts[i] in ('trunk', 'tags', 'branches'):
@@ -211,25 +211,25 @@ def get_svn_wc_revision(svn):
             return int(m.group(1))
     return 0
 
-def getSVNRelPath(svn):
-    url = getSVNURL(svn)
+def get_svn_rel_path(svn):
+    url = get_svn_url(svn)
     parts = url.split('/')
     for i in range(0, len(parts) - 1):
         if parts[i] == 'trunk' or i > 0 and parts[i-1] in ('tags', 'branches'):
             return '/' + '/'.join(parts[i+1:])
     return '/'
 
-def getSVNTopLevel(svn):
-    url = getSVNURL(svn)
+def get_svn_top_level(svn):
+    url = get_svn_url(svn)
     parts = url.split('/')
     for i in range(0, len(parts)):
         if parts[i] == 'trunk' or i > 0 and parts[i-1] in ('tags', 'branches'):
             return '/'.join(parts[:i+1])
     return ''
 
-def getSVNBranchList(svn):
+def get_svn_branch_list(svn):
     colist = []
-    root = getSVNRoot(svn)
+    root = get_svn_root_url(svn)
     lines = Popen([svn, 'ls', root + '/branches'],
                 stdout=PIPE, stderr=PIPE).communicate()[0].split('\n')
     for line in lines:
@@ -237,9 +237,9 @@ def getSVNBranchList(svn):
             colist.append(re.sub(r'/$', '', line))
     return colist
 
-def getSVNTagList(svn):
+def get_svn_tag_list(svn):
     colist = []
-    root = getSVNRoot(svn)
+    root = get_svn_root_url(svn)
     lines = Popen([svn, 'ls', root + '/tags'],
                 stdout=PIPE, stderr=PIPE).communicate()[0].split('\n')
     for line in lines:
@@ -247,13 +247,13 @@ def getSVNTagList(svn):
             colist.append(re.sub(r'/$', '', line))
     return colist
 
-def getSVNProperty(svn, prop, path):
+def get_svn_property(svn, prop, path):
     return Popen([svn, 'propget', prop, path], stdout=PIPE).communicate()[0]
 
-def setSVNProperty(svn, prop, val, path):
+def set_svn_property(svn, prop, val, path):
     Popen([svn, 'propset', prop, val, path], stdout=PIPE).wait()
 
-def delSVNProperty(svn, prop, path):
+def del_svn_property(svn, prop, path):
     Popen([svn, 'propdel', prop, path], stdout=PIPE).wait()
 
 def filter_update(pout, out):
@@ -468,14 +468,14 @@ Operations:
     return RET_OK
 
 def branch(argv, svn, out):
-    origin = getSVNTopLevel(svn)
-    root = getSVNRoot(svn)
+    origin = get_svn_top_level(svn)
+    root = get_svn_root_url(svn)
     if origin == '' or root == '':
         sys.stderr.write("Could not determine origin/root URL\n")
         return RET_ERR
     if len(argv) < 2:
-        bl = ['trunk'] + getSVNBranchList(svn)
-        current = getSVNTopLevel(svn).split('/')[-1]
+        bl = ['trunk'] + get_svn_branch_list(svn)
+        current = get_svn_top_level(svn).split('/')[-1]
         bl.sort()
         for b in bl:
             if b == current:
@@ -500,12 +500,12 @@ def branch(argv, svn, out):
     return RET_OK
 
 def tag(argv, svn, out):
-    origin = getSVNTopLevel(svn)
-    root = getSVNRoot(svn)
+    origin = get_svn_top_level(svn)
+    root = get_svn_root_url(svn)
     if origin == '' or root == '':
         sys.stderr.write("Could not determine origin/root URL\n")
         return RET_ERR
-    tl = getSVNTagList(svn)
+    tl = get_svn_tag_list(svn)
     if len(argv) < 2:
         tl.sort()
         for t in tl:
@@ -539,8 +539,8 @@ def switch(argv, svn, out):
     if len(argv) < 2:
         return RET_REEXEC
     switched = False
-    root = getSVNRoot(svn)
-    path = getSVNRelPath(svn)
+    root = get_svn_root_url(svn)
+    path = get_svn_rel_path(svn)
     while True:
         if argv[1] == 'trunk':
             pout = Popen([svn, 'switch', root + '/trunk' + path],
@@ -548,14 +548,14 @@ def switch(argv, svn, out):
             filter_update(pout, out)
             switched = True
             break
-        bl = getSVNBranchList(svn)
+        bl = get_svn_branch_list(svn)
         if argv[1] in bl:
             pout = Popen([svn, 'switch', root + '/branches/' + argv[1] + path],
                     stdout=PIPE).stdout
             filter_update(pout, out)
             switched = True
             break
-        tl = getSVNTagList(svn)
+        tl = get_svn_tag_list(svn)
         if argv[1] in tl:
             pout = Popen([svn, 'switch', root + '/tags/' + argv[1] + path],
                     stdout=PIPE).stdout
@@ -565,7 +565,7 @@ def switch(argv, svn, out):
         # argument is not a tag/branch name
         break
     if switched:
-        url = getSVNURL(svn)
+        url = get_svn_url(svn)
         out.write('URL: %s\n' % url)
         return RET_OK
     pout = Popen([svn] + argv, stdout=PIPE).stdout
@@ -575,8 +575,8 @@ def switch(argv, svn, out):
 def merge(argv, svn, out):
     if len(argv) < 2:
         return RET_REEXEC
-    root = getSVNRoot(svn)
-    branches = getSVNBranchList(svn)
+    root = get_svn_root_url(svn)
+    branches = get_svn_branch_list(svn)
     if not argv[1] in branches:
         return RET_REEXEC
     lines = Popen([svn, 'log', '--stop-on-copy', root + '/branches/' + argv[1]],
@@ -589,7 +589,7 @@ def merge(argv, svn, out):
     if rev == 0:
         sys.stderr.write('Could not get first branch revision\n')
         return RET_ERR
-    path = getSVNRelPath(svn)
+    path = get_svn_rel_path(svn)
     Popen([svn, 'merge', '-r%s:HEAD' % rev,
         root + '/branches/' + argv[1] + path, '.'], stdout=out).wait()
     return RET_OK
@@ -661,14 +661,14 @@ def binaries(argv, svn, out, base_path = '.'):
             continue
         ent_path = os.sep.join([base_path, ent])
         if os.path.isfile(ent_path):
-            mime_type = getSVNProperty(svn, 'svn:mime-type', ent_path)
+            mime_type = get_svn_property(svn, 'svn:mime-type', ent_path)
             if mime_type != '' and not re.match(r'text/.*', mime_type):
                 # we found a binary file
-                needs_lock = getSVNProperty(svn, 'svn:needs-lock', ent_path)
+                needs_lock = get_svn_property(svn, 'svn:needs-lock', ent_path)
                 if needs_lock:
                     out.write('* ')
                 elif len(argv) >= 2 and argv[1] == '--set-lock':
-                    setSVNProperty(svn, 'svn:needs-lock', '*', ent_path)
+                    set_svn_property(svn, 'svn:needs-lock', '*', ent_path)
                     out.write('S ')
                 else:
                     out.write('  ')
@@ -683,7 +683,7 @@ def lockable(argv, svn, out):
         for ob in argv[2:]:
             ob_path = os.sep.join([base_path, ob])
 
-            needs_lock = getSVNProperty(svn, 'svn:needs-lock', ob_path)
+            needs_lock = get_svn_property(svn, 'svn:needs-lock', ob_path)
             if needs_lock:
                 out.write('* ')
             else:
@@ -694,13 +694,13 @@ def lockable(argv, svn, out):
     elif len(argv) >= 2 and argv[1] == '--remove':
         for ob in argv[2:]:
             ob_path = os.sep.join([base_path, ob])
-            delSVNProperty(svn, 'svn:needs-lock', ob_path)
+            del_svn_property(svn, 'svn:needs-lock', ob_path)
 
     else:
         # note this is the default assumed operation
         for ob in argv[1:]:
             ob_path = os.sep.join([base_path, ob])
-            setSVNProperty(svn, 'svn:needs-lock', '*', ob_path)
+            set_svn_property(svn, 'svn:needs-lock', '*', ob_path)
     return RET_OK
 
 def diff(argv, svn, out):
@@ -1023,11 +1023,11 @@ def stash(argv, svn, out):
     return RET_OK
 
 def root(argv, svn, out):
-    out.write(getSVNRoot(svn) + '\n')
+    out.write(get_svn_root_url(svn) + '\n')
     return RET_OK
 
 def url(argv, svn, out):
-    out.write(getSVNURL(svn) + '\n')
+    out.write(get_svn_url(svn) + '\n')
     return RET_OK
 
 ###########################################################################
@@ -1036,7 +1036,7 @@ def url(argv, svn, out):
 def main(argv):
     global using_color
 
-    realsvn = findInPath('svn')
+    realsvn = find_in_path('svn')
     config = get_config(realsvn)
     if config['svn']:
         realsvn = config['svn']
