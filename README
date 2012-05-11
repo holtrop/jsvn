@@ -142,8 +142,8 @@ Configuration Examples:
 Author: Josh Holtrop
 
 History:
-  v1.2 - in progress
-    - support working-copy-local jsvn configuration files
+  v1.2 - 2012-05-11
+    - support working-copy-local jsvn configuration files ($WCROOT/.svn/jsvn)
     - support python functions as user-implemented aliases
     - bugfix: pager setting in config file overrides $PAGER environment
       variable instead of other way around
