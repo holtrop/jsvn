@@ -740,6 +740,7 @@ def update(argv, svn, out):
 def status(argv, svn, out):
     external = ''
     external_printed = True
+    something_printed = False
     pout = Popen([svn] + argv, stdout=PIPE).stdout
     for line in iter(pout.readline, ''):
         line = line.rstrip()
@@ -753,7 +754,9 @@ def status(argv, svn, out):
 
         # anything not matched yet will cause an external to be shown
         if not external_printed:
-            out.write("\nExternal '%s':\n" % external)
+            if something_printed:
+                out.write('\n')
+            out.write("External '%s':\n" % external)
             external_printed = True
         if re.match(STATUS_LINE_REGEX, line):
             action = line[0]
@@ -775,9 +778,11 @@ def status(argv, svn, out):
             out.write(line)
             ansi_reset(out)
             out.write('\n')
+            something_printed = True
             continue
         out.write(line)
         out.write('\n')
+        something_printed = True
     return RET_OK
 
 def externals(argv, svn, out):
