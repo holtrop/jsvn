@@ -206,6 +206,14 @@ def get_svn_tag_list(svn):
             colist.append(re.sub(r'/$', '', line))
     return colist
 
+def is_file_under_vc(svn, path):
+    p = Popen([svn, 'info', path], stdout=PIPE, stderr=PIPE)
+    under_vc = False
+    for line in iter(p.stdout.readline, ''):
+        if re.match('Path:', line):
+            under_vc = True
+    return under_vc
+
 def get_svn_property(svn, prop, path):
     return Popen([svn, 'propget', prop, path], stdout=PIPE).communicate()[0]
 
@@ -621,6 +629,8 @@ def binaries(argv, svn, out, base_path = '.'):
         if ent in ('.', '..', '.svn'):
             continue
         ent_path = os.sep.join([base_path, ent])
+        if not is_file_under_vc(svn, ent_path):
+            continue
         if os.path.isfile(ent_path):
             mime_type = get_svn_property(svn, 'svn:mime-type', ent_path)
             if mime_type != '' and not re.match(r'text/.*', mime_type):
