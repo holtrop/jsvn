@@ -140,8 +140,8 @@ def find_in_path(cmd):
             return full_path
     return ''
 
-def get_svn_url(svn):
-    for line in Popen([svn, 'info'], stdout=PIPE).communicate()[0].split('\n'):
+def get_svn_url(svn, path='.'):
+    for line in Popen([svn, 'info', path], stdout=PIPE).communicate()[0].split('\n'):
         m = re.match(r'^URL:\s*(.*?)\s*$', line)
         if m is not None:
             return m.group(1)
@@ -1009,7 +1009,10 @@ def root(argv, svn, out):
     return RET_OK
 
 def url(argv, svn, out):
-    out.write(get_svn_url(svn) + '\n')
+    path = '.'
+    if len(argv) > 1:
+        path = argv[1]
+    out.write(get_svn_url(svn, path) + '\n')
     return RET_OK
 
 ###########################################################################
