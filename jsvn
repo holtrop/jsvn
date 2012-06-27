@@ -836,7 +836,7 @@ def log(argv, svn, out):
             out.write(line)
             out.write('\n')
             mode = 'cp'
-        elif mode == 'cp' and re.match(r'   [ADM] ', line):
+        elif mode == 'cp' and re.match(r'   [ADM] /', line):
             action = line[3]
             if action == 'A':
                 ansi_color(out, 'green')
