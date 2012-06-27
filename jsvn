@@ -13,6 +13,7 @@ from subprocess import *
 import traceback
 import datetime
 import types
+import getopt
 
 STATUS_LINE_REGEX = r'[ACDIMRX?!~ ][CM ][L ][+ ][SX ][KOTB ]..(.+)'
 
@@ -812,11 +813,19 @@ def externals(argv, svn, out):
     return RET_OK
 
 def stash(argv, svn, out):
+    argv = argv[1:] # strip 'stash' command
     action = 'save'
-    if len(argv) >= 2:
-        if not argv[1].startswith('-'):
-            action = argv[1]
+    if len(argv) >= 1:
+        if not argv[0].startswith('-'):
+            action = argv[0]
+            argv = argv[1:]
+    # now argv only contains options/arguments to the stash subcommand itself
     if action == 'save':
+        keep_wc = False
+        options, args = getopt.getopt(argv, 'k')
+        for opt, val in options:
+            if opt == '-k':
+                keep_wc = True
         owd = os.getcwd()
         wc_dir = get_svn_wc_root(svn)
         os.chdir(wc_dir)
@@ -864,17 +873,19 @@ def stash(argv, svn, out):
                             files_changed[target] = action
                         else:
                             files_changed[target] = prop_action
-                        Popen([svn, 'revert', target], stdout=PIPE).wait()
-                        if action == 'A':
-                            # a file was added, so to stash it we must remove
-                            # it in addition to reverting the add
-                            if os.path.isfile(target):
-                                os.unlink(target)
-                            elif os.path.isdir(target):
-                                if len(os.listdir(target)) == 0:
-                                    os.rmdir(target)
-                            else:
-                                raise ValueError('unhandled target type')
+                        if not keep_wc:
+                            # do the actual revert if -k not given
+                            Popen([svn, 'revert', target], stdout=PIPE).wait()
+                            if action == 'A':
+                                # a file was added, so to stash it we must
+                                # remove it in addition to reverting the add
+                                if os.path.isfile(target):
+                                    os.unlink(target)
+                                elif os.path.isdir(target):
+                                    if len(os.listdir(target)) == 0:
+                                        os.rmdir(target)
+                                else:
+                                    raise ValueError('unhandled target type')
             # write stash info
             if len(files_changed) == 1:
                 fname = files_changed.keys()[0]
@@ -959,8 +970,8 @@ def stash(argv, svn, out):
         stash_ids = get_stash_ids(svn)
         if len(stash_ids) > 0:
             stash_idx = stash_ids[-1]
-            if len(argv) >= 3:
-                stash_idx = int(argv[2])
+            if len(argv) >= 1:
+                stash_idx = int(argv[0])
             stash_fname = get_stash_fname(svn, stash_idx)
             p = Popen([svn, 'patch', stash_fname], stdout=PIPE)
             filter_update(p.stdout, out)
@@ -977,8 +988,8 @@ def stash(argv, svn, out):
         stash_ids = get_stash_ids(svn)
         if len(stash_ids) > 0:
             stash_id = stash_ids[-1]
-            if len(argv) >= 3:
-                stash_id = int(argv[2])
+            if len(argv) >= 1:
+                stash_id = int(argv[0])
             if stash_id in stash_ids:
                 stash_fname = get_stash_fname(svn, stash_id)
                 fd = open(stash_fname, 'r')
@@ -993,8 +1004,8 @@ def stash(argv, svn, out):
         stash_ids = get_stash_ids(svn)
         if len(stash_ids) > 0:
             stash_id = stash_ids[-1]
-            if len(argv) >= 3:
-                stash_id = int(argv[2])
+            if len(argv) >= 1:
+                stash_id = int(argv[0])
             stash_fname = get_stash_fname(svn, stash_id)
             os.unlink(stash_fname)
             out.write('Dropped stash %d\n' % stash_id)
