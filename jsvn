@@ -340,6 +340,19 @@ def resolve_reference(svn, ref):
     # ref was not an actual file, 'trunk', a tag name, or a branch name
     return ('', ref)
 
+def find_branched_revision(svn, branch_url, branch_path, base_path):
+    p = Popen([svn, 'log', '-v', branch_url], stdout=PIPE)
+    search_path = branch_path
+    for line in iter(p.stdout.readline, ''):
+        m = re.match('\s+A\s+(.*?)\s+\(from\s+(.*?):(\d+)\)\s*$', line)
+        if m is not None:
+            new_path, old_path, rev = m.group(1, 2, 3)
+            if new_path == search_path:
+                if old_path == base_path:
+                    return int(rev)
+                search_path = old_path
+    return -1
+
 ###########################################################################
 # Subcommand Handlers                                                     #
 ###########################################################################
@@ -710,7 +723,7 @@ def lockable(argv, svn, out):
 
 def diff(argv, svn, out):
     for i, v in enumerate(argv):
-        m = re.match('(.*)(\.\.\.?)(.*)$', v)
+        m = re.match('(.*?)(\.\.\.?)(.*)$', v)
         if m is not None:
             ref1, operator, ref2 = m.group(1, 2, 3)
             url1, path1 = resolve_reference(svn, ref1)
@@ -721,10 +734,17 @@ def diff(argv, svn, out):
             if url2 == '':
                 sys.stderr.write('Could not resolve reference "%s"\n' % ref2)
                 return RET_ERR
-            if operator == '..':
-                # show the direct difference between the two refs
-                argv = argv[:i] + [url1, url2] + argv[i + 1:]
-                break
+            if operator == '...':
+                # amend url1 to include the pegged revision from where ref2
+                # originally branched from it
+                r = find_branched_revision(svn, url2, path2, path1)
+                if r < 0:
+                    sys.stderr.write(('Could not find revision where "%s" ' +
+                            'branched from "%s"\n') % (ref2, ref1))
+                    return RET_ERR
+                url1 += '@%d' % r
+            argv = argv[:i] + [url1, url2] + argv[i + 1:]
+            break
     pout = Popen([svn] + argv, stdout=PIPE).stdout
     for line in iter(pout.readline, ''):
         colordiff(out, line)
