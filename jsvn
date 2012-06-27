@@ -803,6 +803,11 @@ def log(argv, svn, out):
                 return RET_ERR
             argv = argv[:i] + ['-rHEAD:%d' % (r + 1), url2] + argv[i + 1:]
             break
+        if not v.startswith('-'):
+            url, path = resolve_reference(svn, v)
+            if url == '':
+                continue
+            argv = argv[:i] + [url] + argv[i + 1:]
     mode = 'normal'
     pout = Popen([svn] + argv, stdout=PIPE).stdout
     for line in iter(pout.readline, ''):
