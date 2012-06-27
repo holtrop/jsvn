@@ -468,6 +468,10 @@ def branch(argv, svn, out):
             Popen([svn, 'rm', root + '/branches/' + branch_name, '-m',
                 "Removed branch '%s'" % branch_name], stdout=out).wait()
             return RET_OK
+    bl = get_svn_branch_list(svn)
+    if branch_name in bl:
+        sys.stderr.write('Error: branch %s already exists\n' % branch_name)
+        return RET_ERR
     comment = "Created '%s' branch" % branch_name
     branch_path = root + '/branches/' + branch_name
     Popen([svn, 'copy', origin, branch_path, '-m', comment], stdout=out).wait()
