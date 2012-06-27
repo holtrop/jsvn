@@ -709,6 +709,22 @@ def lockable(argv, svn, out):
     return RET_OK
 
 def diff(argv, svn, out):
+    for i, v in enumerate(argv):
+        m = re.match('(.*)(\.\.\.?)(.*)$', v)
+        if m is not None:
+            ref1, operator, ref2 = m.group(1, 2, 3)
+            url1, path1 = resolve_reference(svn, ref1)
+            if url1 == '':
+                sys.stderr.write('Could not resolve reference "%s"\n' % ref1)
+                return RET_ERR
+            url2, path2 = resolve_reference(svn, ref2)
+            if url2 == '':
+                sys.stderr.write('Could not resolve reference "%s"\n' % ref2)
+                return RET_ERR
+            if operator == '..':
+                # show the direct difference between the two refs
+                argv = argv[:i] + [url1, url2] + argv[i + 1:]
+                break
     pout = Popen([svn] + argv, stdout=PIPE).stdout
     for line in iter(pout.readline, ''):
         colordiff(out, line)
