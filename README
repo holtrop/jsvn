@@ -67,9 +67,9 @@ Implemented subcommands:
      - this only works with text files, not binary files
     list:
      - show a list of all stash objects
-    pop [id]:
+    pop [-k] [id]:
      - apply the stash object <id> back to the working copy
-     - the stash object is removed if it was successfully applied
+     - the stash object is removed unless -k (keep) given
      - <id> defaults to the newest stash object created
     show [id]:
      - display the diff stored in stash with ID <id>

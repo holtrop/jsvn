@@ -964,20 +964,26 @@ def stash(argv, svn, out):
                 out.write(')')
             out.write('\n')
     elif action == 'pop':
+        keep = False
+        options, args = getopt.getopt(argv, 'k')
+        for opt, val in options:
+            if opt == '-k':
+                keep = True
         owd = os.getcwd()
         wc_dir = get_svn_wc_root(svn)
         os.chdir(wc_dir)
         stash_ids = get_stash_ids(svn)
         if len(stash_ids) > 0:
             stash_idx = stash_ids[-1]
-            if len(argv) >= 1:
-                stash_idx = int(argv[0])
+            if len(args) >= 1:
+                stash_idx = int(args[0])
             stash_fname = get_stash_fname(svn, stash_idx)
             p = Popen([svn, 'patch', stash_fname], stdout=PIPE)
             filter_update(p.stdout, out)
             rc = p.wait()
             if rc == 0:
-                os.unlink(stash_fname)
+                if not keep:
+                    os.unlink(stash_fname)
                 out.write('Popped stash %d\n' % stash_idx)
             else:
                 out.write('Error popping stash %d\n' % stash_idx)
