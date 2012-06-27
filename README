@@ -16,6 +16,10 @@ path and automatically alias 'svn' to it if so:
 Implemented subcommands:
  add <file>...
   - add files as usual; add recursive contents of directories
+ binaries [--set-lock]
+  - show a list of versioned binary files under the current path, with
+    a prepended '*' for those with svn:needs-lock set
+  - with --set-lock, set svn:needs-lock to '*' for binaries
  bisect <operation>
   operations:
    - init  initialize a new bisect operation
@@ -32,15 +36,12 @@ Implemented subcommands:
     - references can be tag names, branch names, or 'trunk'
   - allow specifying ref1...ref2 syntax to show the diff between the common
     ancestor of ref1 and ref2 and ref2's HEAD
- tag[s] [[-d] <tag_name>] | [-m <old_tag_name> <new_tag_name>]
-  - with no arguments, list tags
-  - with -d, delete <tag>
-  - with -m, rename <old_tag_name> to <new_tag_name>
-  - otherwise, create a new tag from the current branch
- switch <short_name>
-  - switch to 'trunk', branch name, or tag name without having to specify
-    the full URL
-  - falls back to Subversion "switch" if <short_name> doesn't exist
+ externals
+  - print a list of the externals in the repository
+ lockable [--remove] | [--status] <file[s]>
+  - with no switches, set svn:needs-lock to '*' for file[s]
+  - with --remove, remove svn:needs-lock' for file[s]
+  - with --status, prepended '*' for those with svn:needs-lock set
  log
   - allow specifying ref1..ref2 syntax to show the log entries for
     ref2 which are not a part of ref1
@@ -49,22 +50,6 @@ Implemented subcommands:
   - falls back to Subversion "merge" if <branch> doesn't exist
  root
   - output root URL (for use on shell such as "svn log $(svn root)/tags")
- url
-  - output repository URL of current working directory
- watch-lock
-  - block until the lock on a file/URL is released
- users
-  - show a list of contributing users to a SVN path
- binaries [--set-lock]
-  - show a list of versioned binary files under the current path, with
-    a prepended '*' for those with svn:needs-lock set
-  - with --set-lock, set svn:needs-lock to '*' for binaries
- lockable [--remove] | [--status] <file[s]>
-  - with no switches, set svn:needs-lock to '*' for file[s]
-  - with --remove, remove svn:needs-lock' for file[s]
-  - with --status, prepended '*' for those with svn:needs-lock set
- externals
-  - print a list of the externals in the repository
  stash [command]
   - allow temporarily saving changes to the working copy without committing
   - the stashes behaves as a "stack" where "save" pushes a new stash object
@@ -86,6 +71,21 @@ Implemented subcommands:
     drop [id]:
      - delete stash object <id>
      - <id> defaults to the newest stash object created
+ switch <short_name>
+  - switch to 'trunk', branch name, or tag name without having to specify
+    the full URL
+  - falls back to Subversion "switch" if <short_name> doesn't exist
+ tag[s] [[-d] <tag_name>] | [-m <old_tag_name> <new_tag_name>]
+  - with no arguments, list tags
+  - with -d, delete <tag>
+  - with -m, rename <old_tag_name> to <new_tag_name>
+  - otherwise, create a new tag from the current branch
+ url
+  - output repository URL of current working directory
+ users
+  - show a list of contributing users to a SVN path
+ watch-lock
+  - block until the lock on a file/URL is released
 
 If the subcommand name begins with two leading underscores ("__"), the
 underscores will be stripped and the command will be handled by native
