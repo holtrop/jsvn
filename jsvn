@@ -320,6 +320,26 @@ def get_next_stash_idx(svn):
         idx = stash_ids[-1] + 1
     return idx
 
+# return (URL, path) tuple containing the full URL to the ref and the
+# repo-relative path (ex: /branches/XXX)
+# if ref is an actual file, URL is returned as an empty string
+# tags resolve before branches
+def resolve_reference(svn, ref):
+    if os.path.exists(ref):
+        return ('', ref)
+    if ref == 'trunk':
+        return (get_svn_root_url(svn) + '/trunk', '/trunk')
+    tl = get_svn_tag_list(svn)
+    if ref in tl:
+        path = '/tags/' + ref
+        return (get_svn_root_url(svn) + path, path)
+    bl = get_svn_branch_list(svn)
+    if ref in bl:
+        path = '/branches/' + ref
+        return (get_svn_root_url(svn) + path, path)
+    # ref was not an actual file, 'trunk', a tag name, or a branch name
+    return ('', ref)
+
 ###########################################################################
 # Subcommand Handlers                                                     #
 ###########################################################################
