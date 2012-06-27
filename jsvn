@@ -1107,7 +1107,8 @@ def stash(argv, svn, out):
                 stash_fname = get_stash_fname(svn, stash_id)
                 fd = open(stash_fname, 'r')
                 for line in iter(fd.readline, ''):
-                    colordiff(out, line)
+                    if not re.match('#info:', line):
+                        colordiff(out, line)
                 fd.close()
             else:
                 out.write('Invalid stash ID\n')
