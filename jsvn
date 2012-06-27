@@ -156,6 +156,14 @@ def get_svn_root_url(svn):
             return '/'.join(parts[:i])
     return ''
 
+def get_svn_repo_real_root_url(svn):
+    proc = Popen([svn, 'info'], stdout=PIPE, stderr=PIPE)
+    for line in proc.communicate()[0].split('\n'):
+        m = re.match(r'Repository Root: (.*)$', line)
+        if m is not None:
+            return m.group(1)
+    return ''
+
 def get_svn_wc_root(svn):
     proc = Popen([svn, 'info'], stdout=PIPE, stderr=PIPE)
     for line in proc.communicate()[0].split('\n'):
@@ -325,18 +333,22 @@ def get_next_stash_idx(svn):
 # if ref is an actual file, URL is returned as an empty string
 # tags resolve before branches
 def resolve_reference(svn, ref):
+    def get_url_and_path_from_local_path(local_path):
+        root = get_svn_root_url(svn)
+        real_root = get_svn_repo_real_root_url(svn)
+        url = root + local_path
+        path = url[len(real_root):]
+        return (url, path)
     if os.path.exists(ref):
         return ('', ref)
     if ref == 'trunk':
-        return (get_svn_root_url(svn) + '/trunk', '/trunk')
+        return get_url_and_path_from_local_path('/trunk')
     tl = get_svn_tag_list(svn)
     if ref in tl:
-        path = '/tags/' + ref
-        return (get_svn_root_url(svn) + path, path)
+        return get_url_and_path_from_local_path('/tags/' + ref)
     bl = get_svn_branch_list(svn)
     if ref in bl:
-        path = '/branches/' + ref
-        return (get_svn_root_url(svn) + path, path)
+        return get_url_and_path_from_local_path('/branches/' + ref)
     # ref was not an actual file, 'trunk', a tag name, or a branch name
     return ('', ref)
 
