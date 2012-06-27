@@ -145,6 +145,17 @@ Configuration Examples:
 Author: Josh Holtrop
 
 History:
+  v1.3 - 2012-06-27
+    - colorize diff --summarize output
+    - log: support ref1..ref2 syntax for showing ref2 history not in ref1
+    - diff: support ref1..ref2 syntax for diffing branches/tags
+    - diff: support ref1...ref2 syntax for diffing from common ancestor
+    - branch: add -s option to immediately switch to newly-created branch
+    - bugfix: branch: throw error when creating a branch that already exists
+    - stash save: add -k option to keep the working copy intact
+    - stash pop: add -k option to keep the stash after applying it
+    - url subcommand can take an optional path argument to operate on
+    - various minor tweaks and improvements
   v1.2 - 2012-05-11
     - support working-copy-local jsvn configuration files ($WCROOT/.svn/jsvn)
     - support python functions as user-implemented aliases
