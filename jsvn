@@ -437,7 +437,7 @@ Operations:
 
 def branch(argv, svn, out):
     argv = argv[1:] # strip 'branch' command
-    options, args = getopt.getopt(argv, 'd')
+    options, args = getopt.getopt(argv, 'ds')
     origin = get_svn_top_level(svn)
     root = get_svn_root_url(svn)
     if origin == '' or root == '':
@@ -462,12 +462,15 @@ def branch(argv, svn, out):
         sys.stderr.write('Error: must supply branch name\n')
         return RET_ERR
     branch_name = args[0]
+    do_switch = False
     for opt, val in options:
         if opt == '-d':
             # delete branch
             Popen([svn, 'rm', root + '/branches/' + branch_name, '-m',
                 "Removed branch '%s'" % branch_name], stdout=out).wait()
             return RET_OK
+        elif opt == '-s':
+            do_switch = True
     bl = get_svn_branch_list(svn)
     if branch_name in bl:
         sys.stderr.write('Error: branch %s already exists\n' % branch_name)
@@ -475,6 +478,8 @@ def branch(argv, svn, out):
     comment = "Created '%s' branch" % branch_name
     branch_path = root + '/branches/' + branch_name
     Popen([svn, 'copy', origin, branch_path, '-m', comment], stdout=out).wait()
+    if do_switch:
+        return switch(['switch', branch_name], svn, out)
     return RET_OK
 
 def tag(argv, svn, out):
