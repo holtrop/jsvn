@@ -320,6 +320,39 @@ def get_next_stash_idx(svn):
         idx = stash_ids[-1] + 1
     return idx
 
+# return (URL, path) tuple containing the full URL to the ref and the
+# repo-relative path (ex: /branches/XXX)
+# if ref is an actual file, URL is returned as an empty string
+# tags resolve before branches
+def resolve_reference(svn, ref):
+    if os.path.exists(ref):
+        return ('', ref)
+    if ref == 'trunk':
+        return (get_svn_root_url(svn) + '/trunk', '/trunk')
+    tl = get_svn_tag_list(svn)
+    if ref in tl:
+        path = '/tags/' + ref
+        return (get_svn_root_url(svn) + path, path)
+    bl = get_svn_branch_list(svn)
+    if ref in bl:
+        path = '/branches/' + ref
+        return (get_svn_root_url(svn) + path, path)
+    # ref was not an actual file, 'trunk', a tag name, or a branch name
+    return ('', ref)
+
+def find_branched_revision(svn, branch_url, branch_path, base_path):
+    p = Popen([svn, 'log', '-v', branch_url], stdout=PIPE)
+    search_path = branch_path
+    for line in iter(p.stdout.readline, ''):
+        m = re.match('\s+A\s+(.*?)\s+\(from\s+(.*?):(\d+)\)\s*$', line)
+        if m is not None:
+            new_path, old_path, rev = m.group(1, 2, 3)
+            if new_path == search_path:
+                if old_path == base_path:
+                    return int(rev)
+                search_path = old_path
+    return -1
+
 ###########################################################################
 # Subcommand Handlers                                                     #
 ###########################################################################
@@ -689,12 +722,50 @@ def lockable(argv, svn, out):
     return RET_OK
 
 def diff(argv, svn, out):
+    for i, v in enumerate(argv):
+        m = re.match('(.*?)(\.\.\.?)(.*)$', v)
+        if m is not None:
+            ref1, operator, ref2 = m.group(1, 2, 3)
+            url1, path1 = resolve_reference(svn, ref1)
+            if url1 == '':
+                continue
+            url2, path2 = resolve_reference(svn, ref2)
+            if url2 == '':
+                continue
+            if operator == '...':
+                # amend url1 to include the pegged revision from where ref2
+                # originally branched from it
+                r = find_branched_revision(svn, url2, path2, path1)
+                if r < 0:
+                    sys.stderr.write(('Could not find revision where "%s" ' +
+                            'branched from "%s"\n') % (ref2, ref1))
+                    return RET_ERR
+                url1 += '@%d' % r
+            argv = argv[:i] + [url1, url2] + argv[i + 1:]
+            break
     pout = Popen([svn] + argv, stdout=PIPE).stdout
     for line in iter(pout.readline, ''):
         colordiff(out, line)
     return RET_OK
 
 def log(argv, svn, out):
+    for i, v in enumerate(argv):
+        m = re.match('(.*)(\.\.)(.*)$', v)
+        if m is not None:
+            ref1, operator, ref2 = m.group(1, 2, 3)
+            url1, path1 = resolve_reference(svn, ref1)
+            if url1 == '':
+                continue
+            url2, path2 = resolve_reference(svn, ref2)
+            if url2 == '':
+                continue
+            r = find_branched_revision(svn, url2, path2, path1)
+            if r < 0:
+                sys.stderr.write(('Could not find revision where "%s" ' +
+                        'branched from "%s"\n') % (ref2, ref1))
+                return RET_ERR
+            argv = argv[:i] + ['-rHEAD:%d' % (r + 1), url2] + argv[i + 1:]
+            break
     mode = 'normal'
     pout = Popen([svn] + argv, stdout=PIPE).stdout
     for line in iter(pout.readline, ''):
