@@ -281,6 +281,26 @@ def filter_update(pout, out):
             continue
         out.write(line)
 
+def filter_status(line, out):
+    line = line.rstrip()
+    action = line[0]
+    prop_action = line[1]
+    if action == 'A':
+        ansi_color(out, 'green')
+    elif action == 'M':
+        ansi_color(out, 'cyan')
+    elif action == 'C':
+        ansi_color(out, 'yellow')
+    elif action == 'D':
+        ansi_color(out, 'red')
+    elif action == 'R':
+        ansi_color(out, 'magenta')
+    elif action == ' ' and prop_action == 'M':
+        ansi_color(out, 'cyan')
+    out.write(line)
+    ansi_reset(out)
+    out.write('\n')
+
 def get_unknowns(svn):
     unknowns = []
     pout = Popen([svn, 'status'], stdout=PIPE).stdout
@@ -734,6 +754,7 @@ def lockable(argv, svn, out):
     return RET_OK
 
 def diff(argv, svn, out):
+    doing_summarize = False
     for i, v in enumerate(argv):
         m = re.match('(.*?)(\.\.\.?)(.*)$', v)
         if m is not None:
@@ -754,10 +775,14 @@ def diff(argv, svn, out):
                     return RET_ERR
                 url1 += '@%d' % r
             argv = argv[:i] + [url1, url2] + argv[i + 1:]
-            break
+        if v == '--summarize':
+            doing_summarize = True
     pout = Popen([svn] + argv, stdout=PIPE).stdout
     for line in iter(pout.readline, ''):
-        colordiff(out, line)
+        if doing_summarize:
+            filter_status(line, out)
+        else:
+            colordiff(out, line)
     return RET_OK
 
 def log(argv, svn, out):
@@ -878,23 +903,7 @@ def status(argv, svn, out):
 
         # look for lines to highlight
         if re.match(STATUS_LINE_REGEX, line):
-            action = line[0]
-            prop_action = line[1]
-            if action == 'A':
-                ansi_color(out, 'green')
-            elif action == 'M':
-                ansi_color(out, 'cyan')
-            elif action == 'C':
-                ansi_color(out, 'yellow')
-            elif action == 'D':
-                ansi_color(out, 'red')
-            elif action == 'R':
-                ansi_color(out, 'magenta')
-            elif action == ' ' and prop_action == 'M':
-                ansi_color(out, 'cyan')
-            out.write(line)
-            ansi_reset(out)
-            out.write('\n')
+            filter_status(line, out)
             something_printed = True
             continue
         out.write(line)
