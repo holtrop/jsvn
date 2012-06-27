@@ -436,12 +436,14 @@ Operations:
     return RET_OK
 
 def branch(argv, svn, out):
+    argv = argv[1:] # strip 'branch' command
+    options, args = getopt.getopt(argv, 'd')
     origin = get_svn_top_level(svn)
     root = get_svn_root_url(svn)
     if origin == '' or root == '':
         sys.stderr.write("Could not determine origin/root URL\n")
         return RET_ERR
-    if len(argv) < 2:
+    if len(options) == 0 and len(args) == 0:
         bl = ['trunk'] + get_svn_branch_list(svn)
         current = get_svn_top_level(svn).split('/')[-1]
         bl.sort()
@@ -456,12 +458,16 @@ def branch(argv, svn, out):
                 ansi_reset(out)
             out.write('\n')
         return RET_OK
-    branch_name = argv[-1]
-    if len(argv) >= 3 and argv[1] == "-d":
-        # delete branch in argv[2]
-        Popen([svn, 'rm', root + '/branches/' + argv[2], '-m',
-            "Removed branch '%s'" % branch_name], stdout=out).wait()
-        return RET_OK
+    if len(args) == 0:
+        sys.stderr.write('Error: must supply branch name\n')
+        return RET_ERR
+    branch_name = args[0]
+    for opt, val in options:
+        if opt == '-d':
+            # delete branch
+            Popen([svn, 'rm', root + '/branches/' + branch_name, '-m',
+                "Removed branch '%s'" % branch_name], stdout=out).wait()
+            return RET_OK
     comment = "Created '%s' branch" % branch_name
     branch_path = root + '/branches/' + branch_name
     Popen([svn, 'copy', origin, branch_path, '-m', comment], stdout=out).wait()
