@@ -728,12 +728,10 @@ def diff(argv, svn, out):
             ref1, operator, ref2 = m.group(1, 2, 3)
             url1, path1 = resolve_reference(svn, ref1)
             if url1 == '':
-                sys.stderr.write('Could not resolve reference "%s"\n' % ref1)
-                return RET_ERR
+                continue
             url2, path2 = resolve_reference(svn, ref2)
             if url2 == '':
-                sys.stderr.write('Could not resolve reference "%s"\n' % ref2)
-                return RET_ERR
+                continue
             if operator == '...':
                 # amend url1 to include the pegged revision from where ref2
                 # originally branched from it
@@ -751,6 +749,23 @@ def diff(argv, svn, out):
     return RET_OK
 
 def log(argv, svn, out):
+    for i, v in enumerate(argv):
+        m = re.match('(.*)(\.\.)(.*)$', v)
+        if m is not None:
+            ref1, operator, ref2 = m.group(1, 2, 3)
+            url1, path1 = resolve_reference(svn, ref1)
+            if url1 == '':
+                continue
+            url2, path2 = resolve_reference(svn, ref2)
+            if url2 == '':
+                continue
+            r = find_branched_revision(svn, url2, path2, path1)
+            if r < 0:
+                sys.stderr.write(('Could not find revision where "%s" ' +
+                        'branched from "%s"\n') % (ref2, ref1))
+                return RET_ERR
+            argv = argv[:i] + ['-rHEAD:%d' % (r + 1), url2] + argv[i + 1:]
+            break
     mode = 'normal'
     pout = Popen([svn] + argv, stdout=PIPE).stdout
     for line in iter(pout.readline, ''):
