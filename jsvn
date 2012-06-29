@@ -14,6 +14,7 @@ import traceback
 import datetime
 import types
 import getopt
+import signal
 
 STATUS_LINE_REGEX = r'[ACDIMRX?!~ ][CM ][L ][+ ][SX ][KOTB ]..(.+)'
 
@@ -1434,6 +1435,7 @@ def do_cmd(argv, realsvn, config, expand=True):
         pager_proc.wait()
 
 def main(argv):
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
     realsvn = find_in_path('svn')
     config = get_config(realsvn)
     if config['svn']:
