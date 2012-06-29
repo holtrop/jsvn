@@ -873,14 +873,33 @@ def log(argv, svn, out):
                     sys.stderr.write('Error: --filter requires argument\n')
                     return RET_ERR
                 m = re.match('(\S+)=(/?)(.*)$', argv[i + 1])
-                if m is not None:
+                if m is None:
                     sys.stderr.write('Error: Incorrect format for filter argument\n')
                     return RET_ERR
                 filters.append(m.group(1, 2, 3))
+                found_filter = True
+                argv = argv[:i] + argv[i+2:]
+    def filters_pass(le):
+        for f in filters:
+            keyword, op, match = f
+            if keyword == 'user':
+                target = le.user
+            elif keyword == 'msg':
+                target = ' '.join(le.message)
+            else:
+                sys.stderr.write('Unknown filter target "%s"\n' % keyword)
+                return False
+            if op == '/':
+                if not re.search(match, target):
+                    return False
+            else:
+                if match != target:
+                    return False
+        return True
     pout = Popen([svn] + argv, stdout=PIPE).stdout
     while True:
         le = LogEntry(pout)
-        if len(le) > 0:
+        if len(le) > 0 and filters_pass(le):
             ansi_color(out, 'yellow')
             out.write('-' * 72)
             ansi_reset(out)
