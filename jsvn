@@ -1387,8 +1387,7 @@ def do_cmd(argv, realsvn, config, expand=True):
                 pager = os.environ['PAGER']
             else:
                 pager = 'less -FRX'
-            pager_proc = Popen(pager, shell=True, stdin=PIPE,
-                    preexec_fn=os.setsid)
+            pager_proc = Popen(pager, shell=True, stdin=PIPE)
             out = pager_proc.stdin
             using_pager = True
 
