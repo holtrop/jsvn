@@ -1,4 +1,5 @@
 Josh's SVN wrapper script
+https://github.com/holtrop/jsvn
 
 This wrapper script to Subversion supplements normal svn behavior by
 adding additional functionality or modifying the output of the default
