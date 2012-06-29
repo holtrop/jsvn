@@ -131,6 +131,64 @@ class LogEntry(object):
             self.changed_paths = self.changed_paths[0:-self.message_lines]
     def __len__(self):
         return self.length
+    def display(self, out, pretty):
+        if pretty == 'default':
+            ansi_color(out, 'blue', bold=True)
+            out.write('r%d' % self.revision)
+            ansi_reset(out)
+            out.write(' | ')
+            ansi_color(out, 'cyan')
+            out.write(self.user)
+            ansi_reset(out)
+            out.write(' | ')
+            ansi_color(out, 'magenta')
+            out.write(self.date)
+            ansi_reset(out)
+            out.write(' | ')
+            out.write(self.lines_text)
+            out.write('\n')
+            for cp in self.changed_paths:
+                if re.match(r'   [ADM] /', cp):
+                    action = cp[3]
+                    if action == 'A':
+                        ansi_color(out, 'green')
+                    elif action == 'D':
+                        ansi_color(out, 'red')
+                    elif action == 'M':
+                        ansi_color(out, 'yellow')
+                out.write(cp)
+                ansi_reset(out)
+                out.write('\n')
+            for ml in self.message:
+                out.write(ml)
+                out.write('\n')
+            for d in self.diffs:
+                out.write('\n')
+                for i in range(2):
+                    ansi_color(out, 'yellow')
+                    out.write(d[i])
+                    ansi_reset(out)
+                    out.write('\n')
+                for l in d[2:]:
+                    colordiff(out, l)
+        elif pretty == 'oneline':
+            ansi_color(out, 'blue', bold=True)
+            out.write('%d' % self.revision)
+            ansi_reset(out)
+            out.write(' ')
+            ansi_color(out, 'cyan')
+            out.write(self.user)
+            ansi_reset(out)
+            m = re.match('\d{4}-(\d{2}-\d{2}\s\d{2}:\d{2})', self.date)
+            if m is not None:
+                out.write(' ')
+                ansi_color(out, 'magenta')
+                out.write(m.group(1))
+                ansi_reset(out)
+            if len(self.message) > 0:
+                out.write(' ')
+                out.write(self.message[0])
+            out.write('\n')
 
 def ansi_color(out, fg=None, bg=None, bold=False):
     if using_color:
@@ -842,6 +900,7 @@ def diff(argv, svn, out):
 
 def log(argv, svn, out):
     filters = []
+    pretty = 'default'
     for i, v in enumerate(argv):
         m = re.match('(.*)(\.\.)(.*)$', v)
         if m is not None:
@@ -864,9 +923,9 @@ def log(argv, svn, out):
             if url == '':
                 continue
             argv = argv[:i] + [url] + argv[i + 1:]
-    found_filter = True
-    while found_filter:
-        found_filter = False
+    found_custom_arg = True
+    while found_custom_arg:
+        found_custom_arg = False
         for i, v in enumerate(argv):
             if v == '--filter':
                 if len(argv) < i + 2:
@@ -877,8 +936,22 @@ def log(argv, svn, out):
                     sys.stderr.write('Error: Incorrect format for filter argument\n')
                     return RET_ERR
                 filters.append(m.group(1, 2, 3))
-                found_filter = True
+                found_custom_arg = True
                 argv = argv[:i] + argv[i+2:]
+                break
+            m = re.match('--pretty(?:=(.*))?', v)
+            if m is not None:
+                if m.group(1) is not None:
+                    pretty = m.group(1)
+                    argv = argv[:i] + argv[i+1:]
+                else:
+                    if len(argv) < i + 2:
+                        sys.stderr.write('Error: --pretty requires argument\n')
+                        return RET_ERR
+                    pretty = argv[i + 1]
+                    argv = argv[:i] + argv[i+2:]
+                found_custom_arg = True
+                break
     def filters_pass(le):
         for f in filters:
             keyword, op, match = f
@@ -900,54 +973,19 @@ def log(argv, svn, out):
     while True:
         le = LogEntry(pout)
         if len(le) > 0 and filters_pass(le):
-            ansi_color(out, 'yellow')
-            out.write('-' * 72)
-            ansi_reset(out)
-            out.write('\n')
-            ansi_color(out, 'blue', bold=True)
-            out.write('r%d' % le.revision)
-            ansi_reset(out)
-            out.write(' | ')
-            ansi_color(out, 'cyan')
-            out.write(le.user)
-            ansi_reset(out)
-            out.write(' | ')
-            ansi_color(out, 'magenta')
-            out.write(le.date)
-            ansi_reset(out)
-            out.write(' | ')
-            out.write(le.lines_text)
-            out.write('\n')
-            for cp in le.changed_paths:
-                if re.match(r'   [ADM] /', cp):
-                    action = cp[3]
-                    if action == 'A':
-                        ansi_color(out, 'green')
-                    elif action == 'D':
-                        ansi_color(out, 'red')
-                    elif action == 'M':
-                        ansi_color(out, 'yellow')
-                out.write(cp)
+            if pretty == 'default':
+                ansi_color(out, 'yellow')
+                out.write('-' * 72)
                 ansi_reset(out)
                 out.write('\n')
-            for ml in le.message:
-                out.write(ml)
-                out.write('\n')
-            for d in le.diffs:
-                out.write('\n')
-                for i in range(2):
-                    ansi_color(out, 'yellow')
-                    out.write(d[i])
-                    ansi_reset(out)
-                    out.write('\n')
-                for l in d[2:]:
-                    colordiff(out, l)
+            le.display(out, pretty)
         if le.eof:
             break
-    ansi_color(out, 'yellow')
-    out.write('-' * 72)
-    ansi_reset(out)
-    out.write('\n')
+    if pretty == 'default':
+        ansi_color(out, 'yellow')
+        out.write('-' * 72)
+        ansi_reset(out)
+        out.write('\n')
     return RET_OK
 
 def update(argv, svn, out):
