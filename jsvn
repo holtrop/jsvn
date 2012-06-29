@@ -172,23 +172,64 @@ class LogEntry(object):
                 for l in d[2:]:
                     colordiff(out, l)
         elif pretty == 'oneline':
+            columns = get_terminal_size()[0]
+            len_written = 0
+            def write(msg):
+                out.write(msg)
+                return len(msg)
+
             ansi_color(out, 'blue', bold=True)
-            out.write('%d' % self.revision)
+            len_written += write('%d' % self.revision)
             ansi_reset(out)
-            out.write(' ')
+
+            len_written += write(' ')
             ansi_color(out, 'cyan')
-            out.write(self.user)
+            len_written += write(self.user)
             ansi_reset(out)
+
             m = re.match('\d{4}-(\d{2}-\d{2}\s\d{2}:\d{2})', self.date)
             if m is not None:
-                out.write(' ')
+                len_written += write(' ')
                 ansi_color(out, 'magenta')
-                out.write(m.group(1))
+                len_written += write(m.group(1))
                 ansi_reset(out)
+
             if len(self.message) > 0:
-                out.write(' ')
-                out.write(self.message[0])
+                len_written += write(' ')
+                len_remaining = columns - len_written
+                if len_remaining > 0:
+                    msg = '...'.join(filter(lambda x: x != '', self.message))
+                    msg = msg[:len_remaining]
+                    write(msg)
+
             out.write('\n')
+
+# From http://stackoverflow.com/questions/566746/
+# how-to-get-console-window-width-in-python
+def get_terminal_size():
+    import os
+    env = os.environ
+    def ioctl_GWINSZ(fd):
+        try:
+            import fcntl, termios, struct, os
+            cr = struct.unpack('hh', fcntl.ioctl(fd, termios.TIOCGWINSZ, '1234'))
+        except:
+            return None
+        return cr
+    cr = ioctl_GWINSZ(0) or ioctl_GWINSZ(1) or ioctl_GWINSZ(2)
+    if not cr:
+        try:
+            fd = os.open(os.ctermid(), os.O_RDONLY)
+            cr = ioctl_GWINSZ(fd)
+            os.close(fd)
+        except:
+            pass
+    if not cr:
+        try:
+            cr = (env['LINES'], env['COLUMNS'])
+        except:
+            cr = (25, 80)
+    return int(cr[1]), int(cr[0])
 
 def ansi_color(out, fg=None, bg=None, bold=False):
     if using_color:
