@@ -82,6 +82,56 @@ def get_config(svn):
 ###########################################################################
 # Utility Functions                                                       #
 ###########################################################################
+class LogEntry(object):
+    def __init__(self, fd):
+        self.revision = 0
+        self.user = ''
+        self.date = ''
+        self.lines = ''
+        self.message_lines = 0
+        self.changed_paths = []
+        self.message = []
+        self.diffs = []
+        self.length = 0
+        self.eof = True
+
+        mode = 'normal'
+        for line in iter(fd.readline, ''):
+            line = line.rstrip()
+            if mode == 'normal' and re.match(r'r\d+\s+\|', line):
+                parts = map(lambda x: x.strip(), line.split('|'))
+                if len(parts) == 4:
+                    self.revision = int(parts[0][1:])
+                    self.user = parts[1]
+                    self.date = parts[2]
+                    self.lines_text = parts[3]
+                    m = re.match('(\d+)\sline', self.lines_text)
+                    if m is not None:
+                        self.message_lines = int(m.group(1))
+            elif mode == 'normal' and re.match(r'Changed.paths:', line):
+                self.changed_paths.append(line)
+                mode = 'cp'
+            elif re.match(r'-{72}', line):
+                if self.length != 0:
+                    self.eof = False
+                    break
+            elif re.match(r'Index:\s', line):
+                self.diffs.append([line])
+                mode = 'diff'
+            elif mode == 'diff':
+                self.diffs[-1].append(line)
+            else:
+                self.changed_paths.append(line)
+            self.length += 1
+        if (len(self.changed_paths) > 0 and len(self.diffs) > 0
+                and self.changed_paths[-1] == ''):
+            self.changed_paths = self.changed_paths[0:len(self.changed_paths)-1]
+        if len(self.changed_paths) >= self.message_lines:
+            self.message = self.changed_paths[-self.message_lines:]
+            self.changed_paths = self.changed_paths[0:-self.message_lines]
+    def __len__(self):
+        return self.length
+
 def ansi_color(out, fg=None, bg=None, bold=False):
     if using_color:
         bc = 1 if bold else 0
@@ -791,6 +841,7 @@ def diff(argv, svn, out):
     return RET_OK
 
 def log(argv, svn, out):
+    filters = []
     for i, v in enumerate(argv):
         m = re.match('(.*)(\.\.)(.*)$', v)
         if m is not None:
@@ -813,67 +864,71 @@ def log(argv, svn, out):
             if url == '':
                 continue
             argv = argv[:i] + [url] + argv[i + 1:]
-    mode = 'normal'
+    found_filter = True
+    while found_filter:
+        found_filter = False
+        for i, v in enumerate(argv):
+            if v == '--filter':
+                if len(argv) < i + 2:
+                    sys.stderr.write('Error: --filter requires argument\n')
+                    return RET_ERR
+                m = re.match('(\S+)=(/?)(.*)$', argv[i + 1])
+                if m is not None:
+                    sys.stderr.write('Error: Incorrect format for filter argument\n')
+                    return RET_ERR
+                filters.append(m.group(1, 2, 3))
     pout = Popen([svn] + argv, stdout=PIPE).stdout
-    for line in iter(pout.readline, ''):
-        line = line.rstrip()
-        if mode == 'normal' and re.match(r'(r\d+)\s+\|', line):
-            parts = line.split('|')
-            if len(parts) == 4:
-                ansi_color(out, 'blue', bold=True)
-                out.write(parts[0])
+    while True:
+        le = LogEntry(pout)
+        if len(le) > 0:
+            ansi_color(out, 'yellow')
+            out.write('-' * 72)
+            ansi_reset(out)
+            out.write('\n')
+            ansi_color(out, 'blue', bold=True)
+            out.write('r%d' % le.revision)
+            ansi_reset(out)
+            out.write(' | ')
+            ansi_color(out, 'cyan')
+            out.write(le.user)
+            ansi_reset(out)
+            out.write(' | ')
+            ansi_color(out, 'magenta')
+            out.write(le.date)
+            ansi_reset(out)
+            out.write(' | ')
+            out.write(le.lines_text)
+            out.write('\n')
+            for cp in le.changed_paths:
+                if re.match(r'   [ADM] /', cp):
+                    action = cp[3]
+                    if action == 'A':
+                        ansi_color(out, 'green')
+                    elif action == 'D':
+                        ansi_color(out, 'red')
+                    elif action == 'M':
+                        ansi_color(out, 'yellow')
+                out.write(cp)
                 ansi_reset(out)
-                out.write('|')
-                ansi_color(out, 'cyan')
-                out.write(parts[1])
-                ansi_reset(out)
-                out.write('|')
-                ansi_color(out, 'magenta')
-                out.write(parts[2])
-                ansi_reset(out)
-                out.write('|')
-                out.write(parts[3])
                 out.write('\n')
-            else:
-                out.write(line)
+            for ml in le.message:
+                out.write(ml)
                 out.write('\n')
-        elif mode == 'normal' and re.match(r'Changed.paths:', line):
-            out.write(line)
-            out.write('\n')
-            mode = 'cp'
-        elif mode == 'cp' and re.match(r'   [ADM] /', line):
-            action = line[3]
-            if action == 'A':
-                ansi_color(out, 'green')
-            elif action == 'D':
-                ansi_color(out, 'red')
-            elif action == 'M':
-                ansi_color(out, 'yellow')
-            out.write(line)
-            ansi_reset(out)
-            out.write('\n')
-        elif re.match(r'-{72}', line):
-            ansi_color(out, 'yellow')
-            out.write(line)
-            ansi_reset(out)
-            out.write('\n')
-            mode = 'normal'
-        elif re.match(r'={67}', line):
-            ansi_color(out, 'yellow')
-            out.write(line)
-            ansi_reset(out)
-            out.write('\n')
-            mode = 'diff'
-        elif mode == 'diff':
-            colordiff(out, line)
-        elif re.match(r'Index:\s', line):
-            ansi_color(out, 'yellow')
-            out.write(line)
-            ansi_reset(out)
-            out.write('\n')
-        else:
-            out.write(line)
-            out.write('\n')
+            for d in le.diffs:
+                out.write('\n')
+                for i in range(2):
+                    ansi_color(out, 'yellow')
+                    out.write(d[i])
+                    ansi_reset(out)
+                    out.write('\n')
+                for l in d[2:]:
+                    colordiff(out, l)
+        if le.eof:
+            break
+    ansi_color(out, 'yellow')
+    out.write('-' * 72)
+    ansi_reset(out)
+    out.write('\n')
     return RET_OK
 
 def update(argv, svn, out):
