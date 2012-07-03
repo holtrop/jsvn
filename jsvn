@@ -115,7 +115,8 @@ class LogEntry(object):
             elif re.match(r'-{72}', line):
                 if self.length != 0:
                     self.eof = False
-                break
+                    break
+                self.length -= 1
             elif re.match(r'Index:\s', line):
                 self.diffs.append([line])
                 mode = 'diff'
