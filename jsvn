@@ -70,6 +70,8 @@ def get_config(svn):
                 'tags': 'tag',
                 'branches': 'branch'},
             'svn': '',
+            'ignore_executable_extensions':
+                ['.c', '.cc', '.h', '.txt']
             }
 
     global_user_config_fname = os.path.expanduser('~/.jsvn')
@@ -542,21 +544,37 @@ def find_common_ancestor(svn, url1, path1, url2, path2):
         r, path = find_branched_revision(svn, url2, path2, path1)
     return r, path
 
+def filter_add_output(fh, out, svn, config):
+    for line in iter(fh.readline, ''):
+        line = line.strip()
+        m = re.match('A\s+(.*)$', line)
+        if m is not None:
+            path = m.group(1)
+            for ext in config['ignore_executable_extensions']:
+                if path.endswith(ext):
+                    del_svn_property(svn, 'svn:executable', path)
+        out.write(line)
+        out.write('\n')
+
 ###########################################################################
 # Subcommand Handlers                                                     #
 ###########################################################################
 def add_h(argv, svn, out, config):
-    if len(argv) < 2:
+    argv = argv[1:] # strip off 'add'
+    if len(argv) == 0:
         # do not handle if no targets are passed
+        # no output filtering needed since nothing will be added
         return RET_REEXEC
     if len(filter(lambda x: x.startswith('-'), argv)) != 0:
         # do not handle if any options are passed
-        return RET_REEXEC
+        p = Popen([svn, 'add'] + argv, stdout=PIPE)
+        filter_add_output(p.stdout, out, svn, config)
+        return RET_OK
     # for each target specified, check if there are unversioned items
     # underneath it (for directories) and add them as well
     # if none are found, fall back to the native svn add
     unknowns = get_unknowns(svn)
-    for path in argv[1:]:
+    for path in argv:
         if path == '.':
             path = os.getcwd()
         if path.endswith('/'):
@@ -564,10 +582,12 @@ def add_h(argv, svn, out, config):
         found_one = False
         for u in unknowns:
             if descendant_path(u, path):
-                Popen([svn, 'add', u], stdout=out).wait()
+                p = Popen([svn, 'add', u], stdout=PIPE)
+                filter_add_output(p.stdout, out, svn, config)
                 found_one = True
         if not found_one:
-            Popen([svn, 'add', path], stdout=out).wait()
+            p = Popen([svn, 'add', path], stdout=PIPE)
+            filter_add_output(p.stdout, out, svn, config)
     return RET_OK
 
 def bisect_h(argv, svn, out, config):

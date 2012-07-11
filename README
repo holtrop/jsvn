@@ -131,6 +131,10 @@ Available configuration variables:
                 function will be called recursively!
   svn:       Specify the path to the native Subversion executable. If not
              specified, the first 'svn' in $PATH will be used.
+  ignore_executable_extensions: A list of extensions (including the '.')
+             for newly added files which should not automatically have the
+             svn:executable property added for them even if the files are
+             executable. The default value is ['.c', '.cc', '.h', '.txt'].
 
 Configuration Examples:
   pager = 'less -FRXi' # enable case-insensitive searching in less
