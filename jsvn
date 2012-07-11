@@ -545,7 +545,7 @@ def find_common_ancestor(svn, url1, path1, url2, path2):
 ###########################################################################
 # Subcommand Handlers                                                     #
 ###########################################################################
-def add(argv, svn, out, config):
+def add_h(argv, svn, out, config):
     if len(argv) < 2:
         # do not handle if no targets are passed
         return RET_REEXEC
@@ -570,7 +570,7 @@ def add(argv, svn, out, config):
             Popen([svn, 'add', path], stdout=out).wait()
     return RET_OK
 
-def bisect(argv, svn, out, config):
+def bisect_h(argv, svn, out, config):
     def usage():
         sys.stderr.write('''Usage: bisect <operation>
 Operations:
@@ -623,11 +623,11 @@ Operations:
         revs = get_revs_between(good_rev, bad_rev)
         if len(revs) < 1:
             if get_svn_wc_revision(svn) != bad_rev:
-                update(['update', '-r%d' % bad_rev], svn, out, config)
+                update_h(['update', '-r%d' % bad_rev], svn, out, config)
             out.write('The first bad revision is %d\n' % get_svn_wc_revision(svn))
             return
         rev = revs[len(revs) / 2]
-        update(['update', '-r%d' % rev], svn, out, config)
+        update_h(['update', '-r%d' % rev], svn, out, config)
         out.write('Bisect: inspecting revision %d, %d revisions remaining\n'
                 % (rev, len(revs)))
     def init_err():
@@ -654,10 +654,10 @@ Operations:
         if rev < 0:
             return init_err()
         rm_bisect_files()
-        update(['update', '-r%d' % rev], svn, out, config)
+        update_h(['update', '-r%d' % rev], svn, out, config)
     return RET_OK
 
-def branch(argv, svn, out, config):
+def branch_h(argv, svn, out, config):
     argv = argv[1:] # strip 'branch' command
     options, args = getopt.getopt(argv, 'ds')
     origin = get_svn_top_level(svn)
@@ -701,10 +701,10 @@ def branch(argv, svn, out, config):
     branch_path = root + '/branches/' + branch_name
     Popen([svn, 'copy', origin, branch_path, '-m', comment], stdout=out).wait()
     if do_switch:
-        return switch(['switch', branch_name], svn, out, config)
+        return switch_h(['switch', branch_name], svn, out, config)
     return RET_OK
 
-def tag(argv, svn, out, config):
+def tag_h(argv, svn, out, config):
     origin = get_svn_top_level(svn)
     root = get_svn_root_url(svn)
     if origin == '' or root == '':
@@ -740,7 +740,7 @@ def tag(argv, svn, out, config):
     Popen([svn, 'copy', origin, tag_path, '-m', comment], stdout=out).wait()
     return RET_OK
 
-def switch(argv, svn, out, config):
+def switch_h(argv, svn, out, config):
     if len(argv) < 2:
         return RET_REEXEC
     switched = False
@@ -777,7 +777,7 @@ def switch(argv, svn, out, config):
     filter_update(pout, out)
     return RET_OK
 
-def merge(argv, svn, out, config):
+def merge_h(argv, svn, out, config):
     if len(argv) < 2:
         return RET_REEXEC
     root = get_svn_root_url(svn)
@@ -799,7 +799,7 @@ def merge(argv, svn, out, config):
         root + '/branches/' + argv[1] + path, '.'], stdout=out).wait()
     return RET_OK
 
-def watch_lock(argv, svn, out, config):
+def watch_lock_h(argv, svn, out, config):
     if len(argv) < 2:
         return RET_ERR
     path = argv[1]
@@ -840,7 +840,7 @@ def watch_lock(argv, svn, out, config):
 ''')
     return RET_OK
 
-def users(argv, svn, out, config):
+def users_h(argv, svn, out, config):
     path = '.'
     if len(argv) > 1:
         path = argv[1]
@@ -860,7 +860,7 @@ def users(argv, svn, out, config):
         out.write("%8d %s\n" % (v[1], v[0]))
     return RET_OK
 
-def binaries(argv, svn, out, config, base_path = '.'):
+def binaries_h(argv, svn, out, config, base_path = '.'):
     for ent in os.listdir(base_path):
         if ent in ('.', '..', '.svn'):
             continue
@@ -882,10 +882,10 @@ def binaries(argv, svn, out, config, base_path = '.'):
                 out.write(ent_path)
                 out.write('\n')
         elif os.path.isdir(ent_path):
-            binaries(argv, svn, out, config, os.sep.join([base_path, ent]))
+            binaries_h(argv, svn, out, config, os.sep.join([base_path, ent]))
     return RET_OK
 
-def lockable(argv, svn, out, config):
+def lockable_h(argv, svn, out, config):
     if len(argv) >= 2 and argv[1] == '--status':
         for ob in argv[2:]:
             ob_path = os.sep.join([base_path, ob])
@@ -910,7 +910,7 @@ def lockable(argv, svn, out, config):
             set_svn_property(svn, 'svn:needs-lock', '*', ob_path)
     return RET_OK
 
-def diff(argv, svn, out, config):
+def diff_h(argv, svn, out, config):
     doing_summarize = '--summarize' in argv
     for i, v in enumerate(argv):
         m = re.match('(.*?)(\.\.\.?)(.*)$', v)
@@ -941,7 +941,7 @@ def diff(argv, svn, out, config):
             colordiff(out, line)
     return RET_OK
 
-def log(argv, svn, out, config):
+def log_h(argv, svn, out, config):
     filters = []
     pretty = 'default'
     for i, v in enumerate(argv):
@@ -1031,12 +1031,12 @@ def log(argv, svn, out, config):
         out.write('\n')
     return RET_OK
 
-def update(argv, svn, out, config):
+def update_h(argv, svn, out, config):
     pout = Popen([svn] + argv, stdout=PIPE).stdout
     filter_update(pout, out)
     return RET_OK
 
-def status(argv, svn, out, config):
+def status_h(argv, svn, out, config):
     external = ''
     external_printed = True
     something_printed = False
@@ -1076,7 +1076,7 @@ def status(argv, svn, out, config):
         something_printed = True
     return RET_OK
 
-def externals(argv, svn, out, config):
+def externals_h(argv, svn, out, config):
     pout = Popen([svn, 'status'], stdout=PIPE).stdout
     for line in iter(pout.readline, ''):
         if re.match(STATUS_LINE_REGEX, line):
@@ -1084,7 +1084,7 @@ def externals(argv, svn, out, config):
                 out.write(line[8:])
     return RET_OK
 
-def stash(argv, svn, out, config):
+def stash_h(argv, svn, out, config):
     argv = argv[1:] # strip 'stash' command
     action = 'save'
     if len(argv) >= 1:
@@ -1294,11 +1294,11 @@ def stash(argv, svn, out, config):
         out.write('Unknown action "%s"\n' % action)
     return RET_OK
 
-def root(argv, svn, out, config):
+def root_h(argv, svn, out, config):
     out.write(get_svn_root_url(svn) + '\n')
     return RET_OK
 
-def url(argv, svn, out, config):
+def url_h(argv, svn, out, config):
     path = '.'
     if len(argv) > 1:
         path = argv[1]
@@ -1398,24 +1398,24 @@ def do_cmd(argv, realsvn, config, expand=True):
         return 1
 
     handlers = {
-            'add': add,
-            'bisect': bisect,
-            'branch': branch,
-            'externals': externals,
-            'switch': switch,
-            'merge': merge,
-            'tag': tag,
-            'diff': diff,
-            'log': log,
-            'root': root,
-            'update': update,
-            'url' : url,
-            'watch-lock': watch_lock,
-            'users': users,
-            'binaries': binaries,
-            'lockable': lockable,
-            'status': status,
-            'stash': stash,
+            'add': add_h,
+            'bisect': bisect_h,
+            'branch': branch_h,
+            'externals': externals_h,
+            'switch': switch_h,
+            'merge': merge_h,
+            'tag': tag_h,
+            'diff': diff_h,
+            'log': log_h,
+            'root': root_h,
+            'update': update_h,
+            'url' : url_h,
+            'watch-lock': watch_lock_h,
+            'users': users_h,
+            'binaries': binaries_h,
+            'lockable': lockable_h,
+            'status': status_h,
+            'stash': stash_h,
             }
 
     do_native_exec = True
