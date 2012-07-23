@@ -820,6 +820,7 @@ def merge_h(argv, svn, out, config):
     return RET_OK
 
 def watch_lock_h(argv, svn, out, config):
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
     if len(argv) < 2:
         return RET_ERR
     path = argv[1]
