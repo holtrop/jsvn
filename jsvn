@@ -687,7 +687,7 @@ def branch_h(argv, svn, out, config):
         return RET_ERR
     if len(options) == 0 and len(args) == 0:
         bl = ['trunk'] + get_svn_branch_list(svn)
-        current = get_svn_top_level(svn).split('/')[-1]
+        current = origin.split('/')[-1]
         bl.sort()
         for b in bl:
             if b == current:
@@ -724,40 +724,73 @@ def branch_h(argv, svn, out, config):
         return switch_h(['switch', branch_name], svn, out, config)
     return RET_OK
 
+# tag -m old new            # rename tag <old> to <new>
+# tag -d name               # delete tag <name>
+# tag                       # list all tags
+# tag name [source[@rev]]   # create tag <name> [from source [at revision rev]]
 def tag_h(argv, svn, out, config):
+    argv = argv[1:] # strip command
+    options, args = getopt.getopt(argv, 'dm')
     origin = get_svn_top_level(svn)
     root = get_svn_root_url(svn)
     if origin == '' or root == '':
         sys.stderr.write("Could not determine origin/root URL\n")
         return RET_ERR
-    tl = get_svn_tag_list(svn)
-    if len(argv) < 2:
-        tl.sort()
-        for t in tl:
+    tag_list = get_svn_tag_list(svn)
+    for opt, val in options:
+        if opt == '-d':
+            if len(args) != 1:
+                sys.stderr.write('Error: must supply tag name\n')
+                return RET_ERR
+            tag_name = args[0]
+            if not tag_name in tag_list:
+                sys.stderr.write('Tag %s not found!\n' % tag_name)
+                return RET_ERR
+            # delete tag
+            Popen([svn, 'rm', root + '/tags/' + tag_name, '-m',
+                "Removed tag '%s'" % tag_name], stdout=out).wait()
+            return RET_OK
+        elif opt == '-m':
+            if len(args) != 2:
+                sys.stderr.write('Error: must supply old and new tag names\n')
+                return RET_ERR
+            old_tag_name, tag_name = args
+            if not old_tag_name in tag_list:
+                sys.stderr.write('Tag %s not found!\n' % old_tag_name)
+                return RET_ERR
+            Popen([svn, 'mv',
+                root + '/tags/' + old_tag_name, root + '/tags/' + tag_name,
+                '-m', "Renamed tag '%s' to '%s'" % (old_tag_name, tag_name)],
+                stdout=out).wait()
+            return RET_OK
+        else:
+            sys.stderr.write('Unrecognized option to "tag" command\n')
+            return RET_ERR
+    if len(args) == 0:
+        tag_list.sort()
+        for t in tag_list:
             out.write(t + '\n')
         return RET_OK
-    tag_name = argv[-1]
-    if len(argv) == 4 and argv[1] == '-m':
-        old_tag_name = argv[2]
-        if not old_tag_name in tl:
-            sys.stderr.write('Tag %s not found!\n' % old_tag_name)
-            return RET_ERR
-        Popen([svn, 'mv',
-            root + '/tags/' + old_tag_name, root + '/tags/' + tag_name,
-            '-m', "Renamed tag '%s' to '%s'" % (old_tag_name, tag_name)],
-            stdout=out).wait()
-        return RET_OK
-    if len(argv) >= 3 and argv[1] == "-d":
-        if not tag_name in tl:
-            sys.stderr.write('Tag %s not found!\n' % tag_name)
-            return RET_ERR
-        # delete tag in argv[2]
-        Popen([svn, 'rm', root + '/tags/' + tag_name, '-m',
-            "Removed tag '%s'" % tag_name], stdout=out).wait()
-        return RET_OK
-    comment = "Created '%s' tag" % tag_name
-    tag_path = root + '/tags/' + tag_name
-    Popen([svn, 'copy', origin, tag_path, '-m', comment], stdout=out).wait()
+    tag_name = args[0]
+    if tag_name in tag_list:
+        sys.stderr.write('Error: tag "%s" already exists\n' % tag_name)
+        return RET_ERR
+    tag_source = origin
+    if len(args) >= 2:
+        source = args[1]
+        m = re.match(r'(.*?)(@\d+)?$', source)
+        if m is not None:
+            ref_name, rev_str = m.group(1, 2)
+            url, path = resolve_reference(svn, ref_name)
+            if url != '':
+                tag_source = url
+                if rev_str is not None:
+                    tag_source += rev_str
+            else:
+                tag_source = source
+    Popen([svn, 'copy', tag_source,
+        root + '/tags/' + tag_name,
+        '-m', "Created '%s' tag" % tag_name], stdout=out).wait()
     return RET_OK
 
 def switch_h(argv, svn, out, config):

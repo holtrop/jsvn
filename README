@@ -76,11 +76,14 @@ Implemented subcommands:
   - switch to 'trunk', branch name, or tag name without having to specify
     the full URL
   - falls back to Subversion "switch" if <short_name> doesn't exist
- tag[s] [[-d] <tag_name>] | [-m <old_tag_name> <new_tag_name>]
-  - with no arguments, list tags
-  - with -d, delete <tag>
-  - with -m, rename <old_tag_name> to <new_tag_name>
-  - otherwise, create a new tag from the current branch
+ tag[s]
+  - tag: list tags
+  - tag -d <name>: delete tag <name>
+  - tag -m <old> <new>: rename tag <old> to <new>
+  - tag <name> [source_ref[@rev]]: create tag <name>; if source_ref is given
+    it is resolved as a reference name (can be 'trunk', or another tag or a
+    branch name); if source is not given the HEAD of the current working-
+    copy URL is used
  url
   - output repository URL of current working directory
  users
