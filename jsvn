@@ -534,6 +534,7 @@ def find_branched_revision(svn, branch_url, branch_path, base_path):
             new_path, old_path, rev = m.group(1, 2, 3)
             if new_path == search_path:
                 if old_path == base_path:
+                    p.kill()
                     return (int(rev), old_path)
                 search_path = old_path
     return (-1, '')
