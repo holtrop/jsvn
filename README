@@ -153,6 +153,13 @@ Configuration Examples:
 Author: Josh Holtrop
 
 History:
+  v1.4 - 2012-08-23
+    - allow optional source/revision argument when creating a tag
+    - handle ctrl+c better when interacting with a pager
+    - add configurable functionality to work around svn automatically adding svn:executable property
+    - bugfix for diff "..." range syntax to show correct diff
+    - improved performance for diff/log "..." syntax
+    - minor stash show bugfix
   v1.3 - 2012-06-27
     - colorize diff --summarize output
     - log: support ref1..ref2 syntax for showing ref2 history not in ref1
