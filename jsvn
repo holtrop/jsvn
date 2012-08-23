@@ -984,7 +984,7 @@ def diff_h(argv, svn, out, config):
                     sys.stderr.write(('Could not find revision where "%s" ' +
                             'branched from "%s"\n') % (ref2, ref1))
                     return RET_ERR
-                url = get_svn_repo_real_root_url(svn) + path + '@%d' % r
+                url1 = get_svn_repo_real_root_url(svn) + path + '@%d' % r
             argv = argv[:i] + [url1, url2] + argv[i + 1:]
             break
     pout = Popen([svn] + argv, stdout=PIPE).stdout
