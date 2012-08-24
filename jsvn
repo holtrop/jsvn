@@ -990,8 +990,10 @@ def diff_h(argv, svn, out, config):
             argv = argv[:i] + [url1, url2] + argv[i + 1:]
             break
     pout = Popen([svn] + argv, stdout=PIPE).stdout
+    root_url = get_svn_root_url(svn)
     for line in iter(pout.readline, ''):
         if doing_summarize:
+            line = line.replace(root_url, '')
             filter_status(line, out)
         else:
             colordiff(out, line)
