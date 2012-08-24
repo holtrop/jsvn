@@ -15,6 +15,7 @@ import datetime
 import types
 import getopt
 import signal
+import platform
 
 STATUS_LINE_REGEX = r'[ACDIMRX?!~ ][CM ][L ][+ ][SX ][KOTB ]..(.+)'
 
@@ -1491,8 +1492,12 @@ def do_cmd(argv, realsvn, config, expand=True):
         pager_proc.wait()
 
 def main(argv):
+    # Determine the name of the real svn binary
+    svn_bin_name = 'svn'
+    if platform.system() == 'Windows':
+        svn_bin_name = 'svn.exe'
     signal.signal(signal.SIGINT, signal.SIG_IGN)
-    realsvn = find_in_path('svn')
+    realsvn = find_in_path( svn_bin_name )
     config = get_config(realsvn)
     if config['svn']:
         realsvn = config['svn']
