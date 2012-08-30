@@ -27,11 +27,14 @@ Implemented subcommands:
    - bad   mark the current revision as bad - containing the change sought
    - good  mark the current revision as good - older than the change sought
    - reset terminate the bisect operation and return to the original revision
- branch[es] [-d] [-s] [<branch_name>]
-  - with no arguments, list branches with '*' by the current one
-  - with -d, delete <branch>
-  - otherwise, create a new branch from the current one
-  - also switch to the new branch if -s is given
+ branch[es]
+  - branch: list branches with '*' by the current one
+  - branch -d name: delete branch <name>
+  - branch [-s] name [source[@rev]]: create branch <name>
+    - if <source> is given it is resolved as a reference name (can be 'trunk',
+      or a tag or branch name)
+    - if <source> is not given the HEAD of the current working-copy URL is used.
+    - also switch to the new branch if -s is given
  diff
   - allow specifying ref1..ref2 syntax to show the diff between two references
     - references can be tag names, branch names, or 'trunk'
@@ -78,12 +81,12 @@ Implemented subcommands:
   - falls back to Subversion "switch" if <short_name> doesn't exist
  tag[s]
   - tag: list tags
-  - tag -d <name>: delete tag <name>
-  - tag -m <old> <new>: rename tag <old> to <new>
-  - tag <name> [source_ref[@rev]]: create tag <name>; if source_ref is given
-    it is resolved as a reference name (can be 'trunk', or another tag or a
-    branch name); if source is not given the HEAD of the current working-
-    copy URL is used
+  - tag -d name: delete tag <name>
+  - tag -m old new: rename tag <old> to <new>
+  - tag name [source[@rev]]: create tag <name>
+    - if <source> is given it is resolved as a reference name (can be 'trunk',
+      or another tag or a branch name)
+    - if <source> is not given the HEAD of the current working-copy URL is used.
  url
   - output repository URL of current working directory
  users

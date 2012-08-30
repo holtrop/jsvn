@@ -679,6 +679,9 @@ Operations:
         update_h(['update', '-r%d' % rev], svn, out, config)
     return RET_OK
 
+# branch                            # list branches
+# branch -d name                    # delete branch <name>
+# branch [-s] name [source[@rev]]   # create branch <name> [from <source> [at revision <rev>]]
 def branch_h(argv, svn, out, config):
     argv = argv[1:] # strip 'branch' command
     options, args = getopt.getopt(argv, 'ds')
@@ -687,7 +690,19 @@ def branch_h(argv, svn, out, config):
     if origin == '' or root == '':
         sys.stderr.write("Could not determine origin/root URL\n")
         return RET_ERR
-    if len(options) == 0 and len(args) == 0:
+    do_switch = False
+    for opt, val in options:
+        if opt == '-d':
+            # delete branch
+            if len(args) < 1:
+                sys.stderr.write('Must supply branch name\n')
+                return RET_ERR
+            Popen([svn, 'rm', root + '/branches/' + args[0], '-m',
+                "Removed branch '%s'" % args[0]], stdout=out).wait()
+            return RET_OK
+        elif opt == '-s':
+            do_switch = True
+    if len(args) == 0:
         bl = ['trunk'] + get_svn_branch_list(svn)
         current = origin.split('/')[-1]
         bl.sort()
@@ -702,26 +717,27 @@ def branch_h(argv, svn, out, config):
                 ansi_reset(out)
             out.write('\n')
         return RET_OK
-    if len(args) == 0:
-        sys.stderr.write('Error: must supply branch name\n')
-        return RET_ERR
     branch_name = args[0]
-    do_switch = False
-    for opt, val in options:
-        if opt == '-d':
-            # delete branch
-            Popen([svn, 'rm', root + '/branches/' + branch_name, '-m',
-                "Removed branch '%s'" % branch_name], stdout=out).wait()
-            return RET_OK
-        elif opt == '-s':
-            do_switch = True
     bl = get_svn_branch_list(svn)
     if branch_name in bl:
         sys.stderr.write('Error: branch %s already exists\n' % branch_name)
         return RET_ERR
     comment = "Created '%s' branch" % branch_name
     branch_path = root + '/branches/' + branch_name
-    Popen([svn, 'copy', origin, branch_path, '-m', comment], stdout=out).wait()
+    branch_source = origin
+    if len(args) >= 2:
+        source = args[1]
+        m = re.match(r'(.*?)(@\d+)?$', source)
+        if m is not None:
+            ref_name, rev_str = m.group(1, 2)
+            url, path = resolve_reference(svn, ref_name)
+            if url != '':
+                branch_source = url
+                if rev_str is not None:
+                    branch_source += rev_str
+            else:
+                branch_source = source
+    Popen([svn, 'copy', branch_source, branch_path, '-m', comment], stdout=out).wait()
     if do_switch:
         return switch_h(['switch', branch_name], svn, out, config)
     return RET_OK
