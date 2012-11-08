@@ -88,8 +88,8 @@ Implemented subcommands:
     - if <source> is given it is resolved as a reference name (can be 'trunk',
       or another tag or a branch name)
     - if <source> is not given the HEAD of the current working-copy URL is used.
- url
-  - output repository URL of current working directory
+ url [file]
+  - output repository URL of file [default: '.' (current working directory)]
  users
   - show a list of contributing users to a SVN path
  watch-lock
