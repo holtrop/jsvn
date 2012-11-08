@@ -748,9 +748,10 @@ def branch_h(argv, svn, out, config):
 # tag name [source[@rev]]   # create tag <name> [from source [at revision rev]]
 def tag_h(argv, svn, out, config):
     argv = argv[1:] # strip command
-    options, args = getopt.getopt(argv, 'dm')
+    options, args = getopt.getopt(argv, 'dmv')
     origin = get_svn_top_level(svn)
     root = get_svn_root_url(svn)
+    verbose = False
     if origin == '' or root == '':
         sys.stderr.write("Could not determine origin/root URL\n")
         return RET_ERR
@@ -781,13 +782,50 @@ def tag_h(argv, svn, out, config):
                 '-m', "Renamed tag '%s' to '%s'" % (old_tag_name, tag_name)],
                 stdout=out).wait()
             return RET_OK
+        elif opt == '-v':
+            verbose = True
         else:
             sys.stderr.write('Unrecognized option to "tag" command\n')
             return RET_ERR
     if len(args) == 0:
         tag_list.sort()
+        max_tagname_length = 0
+        if verbose:
+            for t in tag_list:
+                if len(t) > max_tagname_length:
+                    max_tagname_length = len(t)
         for t in tag_list:
-            out.write(t + '\n')
+            if verbose:
+                out.write(('%%-%ds' % max_tagname_length) % t)
+                date = ''
+                origin = ''
+                rev = ''
+                pout = Popen([svn, 'log', '-v', '--stop-on-copy', '%s/tags/%s' % (root, t)],
+                        stdout=PIPE).stdout
+                for line in iter(pout.readline, ''):
+                    m = re.match(r'r\d+\s*\|[^|]+\|\s*(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})', line)
+                    if m is not None:
+                        date = m.group(1)
+                    m = re.match(r'\s\s\sA\s.*\/tags\/%s\s\(from\s(.*):(\d+)' % t, line)
+                    if m is not None:
+                        origin = re.sub(r'.*\/(trunk|tags|branches)\b', r'\1', m.group(1))
+                        rev = m.group(2)
+                if date != '':
+                    out.write(' ')
+                    ansi_color(out, 'magenta')
+                    out.write(date)
+                    ansi_reset(out)
+                if origin != '':
+                    out.write(' ')
+                    ansi_color(out, 'yellow')
+                    out.write(origin)
+                    ansi_reset(out)
+                    ansi_color(out, 'blue', bold=True)
+                    out.write('@' + rev)
+                    ansi_reset(out)
+            else:
+                out.write(t)
+            out.write('\n')
         return RET_OK
     tag_name = args[0]
     if tag_name in tag_list:

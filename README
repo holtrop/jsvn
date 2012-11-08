@@ -80,7 +80,8 @@ Implemented subcommands:
     the full URL
   - falls back to Subversion "switch" if <short_name> doesn't exist
  tag[s]
-  - tag: list tags
+  - tag [-v]: list tags
+    - with -v (verbose), lists tag origin and creation date
   - tag -d name: delete tag <name>
   - tag -m old new: rename tag <old> to <new>
   - tag name [source[@rev]]: create tag <name>
