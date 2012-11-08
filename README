@@ -157,6 +157,11 @@ Configuration Examples:
 Author: Josh Holtrop
 
 History:
+  v1.5 - 2012-11-08
+    - add -v (verbose) flag to 'tag' subcommand
+    - allow optional source argument to 'branch' subcommand
+    - remove repository prefix URL from diff --summarize output
+    - Add .exe extension to svn binary name if platform is Windows (not cygwin)
   v1.4 - 2012-08-23
     - allow optional source/revision argument when creating a tag
     - handle ctrl+c better when interacting with a pager
