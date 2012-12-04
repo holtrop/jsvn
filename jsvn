@@ -1196,6 +1196,33 @@ def externals_h(argv, svn, out, config):
                 out.write(line[8:])
     return RET_OK
 
+def revert_h(argv, svn, out, config):
+    argv = argv[1:] # strip off command
+    if len(argv) == 0:
+        # do not handle if no targets are passed
+        return RET_REEXEC
+    if len(filter(lambda x: x.startswith('-'), argv)) != 0:
+        # do not handle if any options are passed
+        Popen([svn, 'revert'] + argv).wait()
+        return RET_OK
+    did_something = False
+    p = Popen([svn, 'status'], stdout=PIPE)
+    for i, target in enumerate(argv):
+        if target.endswith('/'):
+            argv[i] = target[:-1]
+    for line in iter(p.stdout.readline, ''):
+        m = re.match(STATUS_LINE_REGEX, line)
+        if m is not None:
+            action = line[0]
+            if action in ('A', 'M', 'D'):
+                fname = m.group(1)
+                for target in argv:
+                    if target == '.' or target == fname or fname.startswith(target + '/'):
+                        Popen([svn, 'revert', fname]).wait()
+                        did_something = True
+                        break
+    return RET_OK if did_something else RET_REEXEC
+
 def stash_h(argv, svn, out, config):
     argv = argv[1:] # strip 'stash' command
     action = 'save'
@@ -1528,6 +1555,7 @@ def do_cmd(argv, realsvn, config, expand=True):
             'lockable': lockable_h,
             'status': status_h,
             'stash': stash_h,
+            'revert': revert_h,
             }
 
     do_native_exec = True

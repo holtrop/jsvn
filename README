@@ -52,6 +52,8 @@ Implemented subcommands:
  merge <branch>
   - merge branch <branch> into the current WC path
   - falls back to Subversion "merge" if <branch> doesn't exist
+ revert <path[s]>
+  - revert all affected files under given target path(s)
  root
   - output root URL (for use on shell such as "svn log $(svn root)/tags")
  stash [command]
