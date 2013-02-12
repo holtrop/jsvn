@@ -1225,6 +1225,214 @@ def revert_h(argv, svn, out, config):
                         break
     return RET_OK if did_something else RET_REEXEC
 
+def stash_save_h(argv, svn, out, config):
+    keep_wc = False
+    options, args = getopt.getopt(argv, 'k')
+    for opt, val in options:
+        if opt == '-k':
+            keep_wc = True
+    owd = os.getcwd()
+    wc_dir = get_svn_wc_root(svn)
+    os.chdir(wc_dir)
+    stash_idx = get_next_stash_idx(svn)
+    stash_fname = get_stash_fname(svn, stash_idx)
+    fh = open(stash_fname, 'w')
+    proc = Popen([svn, 'diff'], stdout=PIPE)
+    wrote_something = False
+    found_binary_file = False
+    n_insertions = 0
+    n_deletions = 0
+    for line in iter(proc.stdout.readline, ''):
+        if re.match(r'Cannot.display..file.marked.as.a.binary.type',
+                line, flags=re.I):
+            found_binary_file = True
+        if line.startswith('-') and not line.startswith('---'):
+            n_deletions += 1
+        if line.startswith('+') and not line.startswith('+++'):
+            n_insertions += 1
+        fh.write(line)
+        wrote_something = True
+    proc.wait()
+    if found_binary_file:
+        out.write('Error: cannot stash with changes to binary files\n')
+        fh.close()
+        os.unlink(stash_fname)
+    elif not wrote_something:
+        out.write('Error: no changes to stash!\n')
+        fh.close()
+        os.unlink(stash_fname)
+    else:
+        # the stash is good, now revert the working copy changes
+        status_lines = Popen([svn, 'status', '--ignore-externals'],
+                stdout=PIPE).communicate()[0].split('\n')
+        files_changed = {}
+        for line in reversed(status_lines):
+            m = re.match(STATUS_LINE_REGEX, line)
+            if m is not None:
+                target = m.group(1)
+                action = line[0]
+                prop_action = line[1]
+                if (action in ('A', 'M', 'D')
+                        or prop_action == 'M'):
+                    if action != ' ':
+                        files_changed[target] = action
+                    else:
+                        files_changed[target] = prop_action
+                    if not keep_wc:
+                        # do the actual revert if -k not given
+                        Popen([svn, 'revert', target], stdout=PIPE).wait()
+                        if action == 'A':
+                            # a file was added, so to stash it we must
+                            # remove it in addition to reverting the add
+                            if os.path.isfile(target):
+                                os.unlink(target)
+                            elif os.path.isdir(target):
+                                if len(os.listdir(target)) == 0:
+                                    os.rmdir(target)
+                            else:
+                                raise ValueError('unhandled target type')
+        # write stash info
+        if len(files_changed) == 1:
+            fname = files_changed.keys()[0]
+            fh.write('#info: %s: %s\n' % (files_changed[fname], fname))
+        else:
+            num_actions = {'A': 0, 'M': 0, 'D': 0}
+            for k in files_changed:
+                if files_changed[k] in num_actions:
+                    num_actions[files_changed[k]] += 1
+            for a in num_actions:
+                if num_actions[a] > 0:
+                    fh.write('#info: %s: %d\n' % (a, num_actions[a]))
+        if n_deletions > 0:
+            fh.write('#info: -%d\n' % n_deletions)
+        if n_insertions > 0:
+            fh.write('#info: +%d\n' % n_insertions)
+        now = datetime.datetime.now()
+        fh.write('#info: @%04d-%02d-%02d %02d:%02d\n' %
+                (now.year, now.month, now.day, now.hour, now.minute))
+        fh.close()
+        out.write('Created stash %d\n' % stash_idx)
+    os.chdir(owd)
+    return RET_OK
+
+def stash_list_h(argv, svn, out, config):
+    stash_ids = get_stash_ids(svn)
+    for si in reversed(stash_ids):
+        ins_text = ''
+        del_text = ''
+        add_text = ''
+        modify_text = ''
+        delete_text = ''
+        date = ''
+        stash_fname = get_stash_fname(svn, si)
+        fh = open(stash_fname, 'r')
+        for line in iter(fh.readline, ''):
+            m = re.match(r'#info: (.*)$', line)
+            if m is not None:
+                info = m.group(1)
+                if info.startswith('A:'):
+                    add_text = info
+                elif info.startswith('M:'):
+                    modify_text = info
+                elif info.startswith('D:'):
+                    delete_text = info
+                elif info.startswith('-'):
+                    del_text = info
+                elif info.startswith('+'):
+                    ins_text = info
+                elif info.startswith('@'):
+                    date = info[1:]
+        fh.close()
+        out.write('%-3d' % si)
+        elements = [
+                (date, 'cyan'),
+                (add_text, 'green'),
+                (modify_text, 'yellow'),
+                (delete_text, 'red'),
+                ]
+        for elem, color in elements:
+            if elem != '':
+                out.write(' ')
+                ansi_color(out, color)
+                out.write(elem)
+                ansi_reset(out)
+        if del_text != '' or ins_text != '':
+            out.write(' (')
+            if del_text != '':
+                ansi_color(out, 'red')
+                out.write(del_text)
+                ansi_reset(out)
+            if ins_text != '':
+                if del_text != '':
+                    out.write(' ')
+                ansi_color(out, 'green')
+                out.write(ins_text)
+                ansi_reset(out)
+            out.write(')')
+        out.write('\n')
+    return RET_OK
+
+def stash_pop_h(argv, svn, out, config):
+    keep = False
+    options, args = getopt.getopt(argv, 'k')
+    for opt, val in options:
+        if opt == '-k':
+            keep = True
+    owd = os.getcwd()
+    wc_dir = get_svn_wc_root(svn)
+    os.chdir(wc_dir)
+    stash_ids = get_stash_ids(svn)
+    if len(stash_ids) > 0:
+        stash_idx = stash_ids[-1]
+        if len(args) >= 1:
+            stash_idx = int(args[0])
+        stash_fname = get_stash_fname(svn, stash_idx)
+        p = Popen([svn, 'patch', stash_fname], stdout=PIPE)
+        filter_update(p.stdout, out)
+        rc = p.wait()
+        if rc == 0:
+            if not keep:
+                os.unlink(stash_fname)
+            out.write('Popped stash %d\n' % stash_idx)
+        else:
+            out.write('Error popping stash %d\n' % stash_idx)
+    else:
+        out.write('No stashes to pop\n')
+    os.chdir(owd)
+    return RET_OK
+
+def stash_show_h(argv, svn, out, config):
+    stash_ids = get_stash_ids(svn)
+    if len(stash_ids) > 0:
+        stash_id = stash_ids[-1]
+        if len(argv) >= 1:
+            stash_id = int(argv[0])
+        if stash_id in stash_ids:
+            stash_fname = get_stash_fname(svn, stash_id)
+            fd = open(stash_fname, 'r')
+            for line in iter(fd.readline, ''):
+                if not re.match('#info:', line):
+                    colordiff(out, line)
+            fd.close()
+        else:
+            out.write('Invalid stash ID\n')
+    else:
+        out.write('No stashes to show\n')
+    return RET_OK
+
+def stash_drop_h(argv, svn, out, config):
+    stash_ids = get_stash_ids(svn)
+    if len(stash_ids) > 0:
+        stash_id = stash_ids[-1]
+        if len(argv) >= 1:
+            stash_id = int(argv[0])
+        stash_fname = get_stash_fname(svn, stash_id)
+        os.unlink(stash_fname)
+        out.write('Dropped stash %d\n' % stash_id)
+    else:
+        out.write('No stashes to drop\n')
+    return RET_OK
+
 def stash_h(argv, svn, out, config):
     argv = argv[1:] # strip 'stash' command
     action = 'save'
@@ -1233,207 +1441,17 @@ def stash_h(argv, svn, out, config):
             action = argv[0]
             argv = argv[1:]
     # now argv only contains options/arguments to the stash subcommand itself
-    if action == 'save':
-        keep_wc = False
-        options, args = getopt.getopt(argv, 'k')
-        for opt, val in options:
-            if opt == '-k':
-                keep_wc = True
-        owd = os.getcwd()
-        wc_dir = get_svn_wc_root(svn)
-        os.chdir(wc_dir)
-        stash_idx = get_next_stash_idx(svn)
-        stash_fname = get_stash_fname(svn, stash_idx)
-        fh = open(stash_fname, 'w')
-        proc = Popen([svn, 'diff'], stdout=PIPE)
-        wrote_something = False
-        found_binary_file = False
-        n_insertions = 0
-        n_deletions = 0
-        for line in iter(proc.stdout.readline, ''):
-            if re.match(r'Cannot.display..file.marked.as.a.binary.type',
-                    line, flags=re.I):
-                found_binary_file = True
-            if line.startswith('-') and not line.startswith('---'):
-                n_deletions += 1
-            if line.startswith('+') and not line.startswith('+++'):
-                n_insertions += 1
-            fh.write(line)
-            wrote_something = True
-        proc.wait()
-        if found_binary_file:
-            out.write('Error: cannot stash with changes to binary files\n')
-            fh.close()
-            os.unlink(stash_fname)
-        elif not wrote_something:
-            out.write('Error: no changes to stash!\n')
-            fh.close()
-            os.unlink(stash_fname)
-        else:
-            # the stash is good, now revert the working copy changes
-            status_lines = Popen([svn, 'status', '--ignore-externals'],
-                    stdout=PIPE).communicate()[0].split('\n')
-            files_changed = {}
-            for line in reversed(status_lines):
-                m = re.match(STATUS_LINE_REGEX, line)
-                if m is not None:
-                    target = m.group(1)
-                    action = line[0]
-                    prop_action = line[1]
-                    if (action in ('A', 'M', 'D')
-                            or prop_action == 'M'):
-                        if action != ' ':
-                            files_changed[target] = action
-                        else:
-                            files_changed[target] = prop_action
-                        if not keep_wc:
-                            # do the actual revert if -k not given
-                            Popen([svn, 'revert', target], stdout=PIPE).wait()
-                            if action == 'A':
-                                # a file was added, so to stash it we must
-                                # remove it in addition to reverting the add
-                                if os.path.isfile(target):
-                                    os.unlink(target)
-                                elif os.path.isdir(target):
-                                    if len(os.listdir(target)) == 0:
-                                        os.rmdir(target)
-                                else:
-                                    raise ValueError('unhandled target type')
-            # write stash info
-            if len(files_changed) == 1:
-                fname = files_changed.keys()[0]
-                fh.write('#info: %s: %s\n' % (files_changed[fname], fname))
-            else:
-                num_actions = {'A': 0, 'M': 0, 'D': 0}
-                for k in files_changed:
-                    if files_changed[k] in num_actions:
-                        num_actions[files_changed[k]] += 1
-                for a in num_actions:
-                    if num_actions[a] > 0:
-                        fh.write('#info: %s: %d\n' % (a, num_actions[a]))
-            if n_deletions > 0:
-                fh.write('#info: -%d\n' % n_deletions)
-            if n_insertions > 0:
-                fh.write('#info: +%d\n' % n_insertions)
-            now = datetime.datetime.now()
-            fh.write('#info: @%04d-%02d-%02d %02d:%02d\n' %
-                    (now.year, now.month, now.day, now.hour, now.minute))
-            fh.close()
-            out.write('Created stash %d\n' % stash_idx)
-        os.chdir(owd)
-    elif action == 'list':
-        stash_ids = get_stash_ids(svn)
-        for si in reversed(stash_ids):
-            ins_text = ''
-            del_text = ''
-            add_text = ''
-            modify_text = ''
-            delete_text = ''
-            date = ''
-            stash_fname = get_stash_fname(svn, si)
-            fh = open(stash_fname, 'r')
-            for line in iter(fh.readline, ''):
-                m = re.match(r'#info: (.*)$', line)
-                if m is not None:
-                    info = m.group(1)
-                    if info.startswith('A:'):
-                        add_text = info
-                    elif info.startswith('M:'):
-                        modify_text = info
-                    elif info.startswith('D:'):
-                        delete_text = info
-                    elif info.startswith('-'):
-                        del_text = info
-                    elif info.startswith('+'):
-                        ins_text = info
-                    elif info.startswith('@'):
-                        date = info[1:]
-            fh.close()
-            out.write('%-3d' % si)
-            elements = [
-                    (date, 'cyan'),
-                    (add_text, 'green'),
-                    (modify_text, 'yellow'),
-                    (delete_text, 'red'),
-                    ]
-            for elem, color in elements:
-                if elem != '':
-                    out.write(' ')
-                    ansi_color(out, color)
-                    out.write(elem)
-                    ansi_reset(out)
-            if del_text != '' or ins_text != '':
-                out.write(' (')
-                if del_text != '':
-                    ansi_color(out, 'red')
-                    out.write(del_text)
-                    ansi_reset(out)
-                if ins_text != '':
-                    if del_text != '':
-                        out.write(' ')
-                    ansi_color(out, 'green')
-                    out.write(ins_text)
-                    ansi_reset(out)
-                out.write(')')
-            out.write('\n')
-    elif action == 'pop':
-        keep = False
-        options, args = getopt.getopt(argv, 'k')
-        for opt, val in options:
-            if opt == '-k':
-                keep = True
-        owd = os.getcwd()
-        wc_dir = get_svn_wc_root(svn)
-        os.chdir(wc_dir)
-        stash_ids = get_stash_ids(svn)
-        if len(stash_ids) > 0:
-            stash_idx = stash_ids[-1]
-            if len(args) >= 1:
-                stash_idx = int(args[0])
-            stash_fname = get_stash_fname(svn, stash_idx)
-            p = Popen([svn, 'patch', stash_fname], stdout=PIPE)
-            filter_update(p.stdout, out)
-            rc = p.wait()
-            if rc == 0:
-                if not keep:
-                    os.unlink(stash_fname)
-                out.write('Popped stash %d\n' % stash_idx)
-            else:
-                out.write('Error popping stash %d\n' % stash_idx)
-        else:
-            out.write('No stashes to pop\n')
-        os.chdir(owd)
-    elif action == 'show':
-        stash_ids = get_stash_ids(svn)
-        if len(stash_ids) > 0:
-            stash_id = stash_ids[-1]
-            if len(argv) >= 1:
-                stash_id = int(argv[0])
-            if stash_id in stash_ids:
-                stash_fname = get_stash_fname(svn, stash_id)
-                fd = open(stash_fname, 'r')
-                for line in iter(fd.readline, ''):
-                    if not re.match('#info:', line):
-                        colordiff(out, line)
-                fd.close()
-            else:
-                out.write('Invalid stash ID\n')
-        else:
-            out.write('No stashes to show\n')
-    elif action == 'drop':
-        stash_ids = get_stash_ids(svn)
-        if len(stash_ids) > 0:
-            stash_id = stash_ids[-1]
-            if len(argv) >= 1:
-                stash_id = int(argv[0])
-            stash_fname = get_stash_fname(svn, stash_id)
-            os.unlink(stash_fname)
-            out.write('Dropped stash %d\n' % stash_id)
-        else:
-            out.write('No stashes to drop\n')
-    else:
-        out.write('Unknown action "%s"\n' % action)
-    return RET_OK
+    actions = {
+            'save': stash_save_h,
+            'list': stash_list_h,
+            'pop': stash_pop_h,
+            'show': stash_show_h,
+            'drop': stash_drop_h
+            }
+    if action in actions:
+        return actions[action](argv, svn, out, config)
+    sys.stderr.write('Unknown action "%s"\n' % action)
+    return RET_ERR
 
 def root_h(argv, svn, out, config):
     out.write(get_svn_root_url(svn) + '\n')
