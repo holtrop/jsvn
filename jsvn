@@ -1217,7 +1217,9 @@ def revert_h(argv, svn, out, config):
             if action in ('A', 'M', 'D'):
                 fname = m.group(1)
                 for target in argv:
-                    if target == '.' or target == fname or fname.startswith(target + '/'):
+                    if fname.startswith(os.getcwd() + os.sep):
+                        fname = fname[len(os.getcwd() + os.sep):]
+                    if target == '.' or target == fname or fname.startswith(target + os.sep):
                         Popen([svn, 'revert', fname]).wait()
                         did_something = True
                         break
