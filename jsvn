@@ -1178,6 +1178,14 @@ def status_h(argv, svn, out, config):
             out.write("External '%s':\n" % external)
             external_printed = True
 
+        # trim working directory from paths in externals
+        if external != '':
+            m = re.match(STATUS_LINE_REGEX, line)
+            if m is not None:
+                path = m.group(1)
+                if path.startswith(os.getcwd() + os.sep):
+                    line = line[:8] + path[len(os.getcwd() + os.sep):]
+
         # look for lines to highlight
         if re.match(STATUS_LINE_REGEX, line):
             filter_status(line, out)
