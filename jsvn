@@ -1233,7 +1233,7 @@ def revert_h(argv, svn, out, config):
                         break
     return RET_OK if did_something else RET_REEXEC
 
-def stash_save_h(args, svn, out, config, keep_wc):
+def stash_save_h(args, svn, out, config, keep_wc, patch):
     owd = os.getcwd()
     wc_dir = get_svn_wc_root(svn)
     os.chdir(wc_dir)
@@ -1433,21 +1433,24 @@ def stash_drop_h(argv, svn, out, config):
 
 def stash_h(argv, svn, out, config):
     argv = argv[1:] # strip 'stash' command
-    opts, args = getopt.getopt(argv, 'k',
-            ['list', 'pop', 'show', 'drop'])
+    opts, args = getopt.getopt(argv, 'kp',
+            ['list', 'pop', 'show', 'drop', 'keep', 'patch'])
     keep = False
+    patch = False
     for opt, arg in opts:
         if opt == '--list':
             return stash_list_h(args, svn, out, config)
-        if opt == '--pop':
+        elif opt == '--pop':
             return stash_pop_h(args, svn, out, config, keep)
-        if opt == '--show':
+        elif opt == '--show':
             return stash_show_h(args, svn, out, config)
-        if opt == '--drop':
+        elif opt == '--drop':
             return stash_drop_h(args, svn, out, config)
-        if opt == '-k':
+        elif opt in ('-k', '--keep'):
             keep = True
-    return stash_save_h(args, svn, out, config, keep)
+        elif opt in ('-p', '--patch'):
+            patch = True
+    return stash_save_h(args, svn, out, config, keep, patch)
 
 def root_h(argv, svn, out, config):
     out.write(get_svn_root_url(svn) + '\n')
