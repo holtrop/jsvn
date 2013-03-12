@@ -1322,6 +1322,8 @@ q: quit and abort stash
         svars['hunk_buildup'] = ''
         svars['index_fname'] = new_file_name
         svars['binary_file'] = False
+        svars['wrote_index_sf'] = False
+        svars['wrote_index_rf'] = False
 
     diff_proc = Popen([svn, 'diff'] + targets, stdout=PIPE)
     for line in iter(diff_proc.stdout.readline, ''):
@@ -1342,7 +1344,8 @@ q: quit and abort stash
             svars['hunk_buildup'] += line
         if svars['quit']:
             break
-    flush_file('')
+    if not svars['quit']:
+        flush_file('')
 
     s_fh.close()
     r_fh.close()
