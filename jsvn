@@ -1250,7 +1250,7 @@ def get_svn_contents_to_stash(targets, svn, out, keep, patch):
         'index_header': '',
         'hunk_buildup': '',
         'index_fname': '',
-        'prompted_for_index': '',
+        'prompted_for_index': False,
         'quit': False,
         'wrote_index_sf': False,
         'wrote_index_rf': False,
@@ -1324,6 +1324,7 @@ q: quit and abort stash
         svars['binary_file'] = False
         svars['wrote_index_sf'] = False
         svars['wrote_index_rf'] = False
+        svars['prompted_for_index'] = False
 
     diff_proc = Popen([svn, 'diff'] + targets, stdout=PIPE)
     for line in iter(diff_proc.stdout.readline, ''):
