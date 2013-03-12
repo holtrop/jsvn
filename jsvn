@@ -1398,6 +1398,10 @@ def stash_save_h(args, svn, out, config, keep, patch, externals):
                 stash_fh.write('#info: -%d\n' % n_deletions)
             if n_insertions > 0:
                 stash_fh.write('#info: +%d\n' % n_insertions)
+            if len(revert_list) == 1:
+                stash_fh.write('#info: F: %s\n' % revert_list[0])
+            else:
+                stash_fh.write('#info: F: %d files\n' % len(revert_list))
             now = datetime.datetime.now()
             stash_fh.write('#info: @%04d-%02d-%02d %02d:%02d\n' %
                     (now.year, now.month, now.day, now.hour, now.minute))
@@ -1418,6 +1422,7 @@ def stash_list_h(argv, svn, out, config):
         add_text = ''
         modify_text = ''
         delete_text = ''
+        summary_text = ''
         date = ''
         stash_fname = get_stash_fname(svn, si)
         fh = open(stash_fname, 'r')
@@ -1431,6 +1436,8 @@ def stash_list_h(argv, svn, out, config):
                     modify_text = info
                 elif info.startswith('D:'):
                     delete_text = info
+                elif info.startswith('F:'):
+                    summary_text = info[3:]
                 elif info.startswith('-'):
                     del_text = info
                 elif info.startswith('+'):
@@ -1444,6 +1451,7 @@ def stash_list_h(argv, svn, out, config):
                 (add_text, 'green'),
                 (modify_text, 'yellow'),
                 (delete_text, 'red'),
+                (summary_text, 'magenta'),
                 ]
         for elem, color in elements:
             if elem != '':
