@@ -1360,10 +1360,11 @@ def stash_save_h(args, svn, out, config, keep, patch):
     if len(revert_list) == 0:
         out.write('No changes stashed.\n')
     else:
-        for rf in revert_list:
-            Popen([svn, 'revert', rf], stdout=PIPE).wait()
-        if r_fname != '':
-            Popen([svn, 'patch', r_fname], stdout=PIPE).wait()
+        if not keep:
+            for rf in revert_list:
+                Popen([svn, 'revert', rf], stdout=PIPE).wait()
+            if r_fname != '':
+                Popen([svn, 'patch', r_fname], stdout=PIPE).wait()
         if s_fname != '':
             stash_idx = get_next_stash_idx(svn)
             stash_fname = get_stash_fname(svn, stash_idx)
