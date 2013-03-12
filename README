@@ -64,6 +64,10 @@ Implemented subcommands:
   options:
     -e, --externals
       - also stash changes in externals (if no explicit targets given)
+      - this option is implicitly on if the configuration value
+        'stash_externals' is set to True
+    --noexternals
+      - reverse --externals (or the configuration value 'stash_externals')
     -k, --keep
       - create the stash object, but keep the changes locally as well
       - with --pop, do not remove the stash object after reapplying it
@@ -151,6 +155,8 @@ Available configuration variables:
              for newly added files which should not automatically have the
              svn:executable property added for them even if the files are
              executable. The default value is ['.c', '.cc', '.h', '.txt'].
+  stash_externals: True or False to enable/disable whether '-e' is implicitly
+             on for 'stash' subcommand. Defaults to False.
 
 Configuration Examples:
   pager = 'less -FRXi' # enable case-insensitive searching in less

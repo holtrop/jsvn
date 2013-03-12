@@ -73,7 +73,8 @@ def get_config(svn):
                 'branches': 'branch'},
             'svn': '',
             'ignore_executable_extensions':
-                ['.c', '.cc', '.h', '.txt']
+                ['.c', '.cc', '.h', '.txt'],
+            'stash_externals': False,
             }
 
     global_user_config_fname = os.path.expanduser('~/.jsvn')
@@ -1521,10 +1522,11 @@ def stash_drop_h(argv, svn, out, config):
 def stash_h(argv, svn, out, config):
     argv = argv[1:] # strip 'stash' command
     opts, args = getopt.getopt(argv, 'ekp',
-            ['list', 'pop', 'show', 'drop', 'externals', 'keep', 'patch'])
+            ['list', 'pop', 'show', 'drop', 'externals', 'noexternals',
+             'keep', 'patch'])
     keep = False
     patch = False
-    externals = False
+    externals = config['stash_externals']
     for opt, arg in opts:
         if opt == '--list':
             return stash_list_h(args, svn, out, config)
@@ -1540,6 +1542,8 @@ def stash_h(argv, svn, out, config):
             patch = True
         elif opt in ('-e', '--externals'):
             externals = True
+        elif opt == '--noexternals':
+            externals = False
     return stash_save_h(args, svn, out, config, keep, patch, externals)
 
 def root_h(argv, svn, out, config):
