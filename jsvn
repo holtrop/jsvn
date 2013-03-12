@@ -1273,7 +1273,9 @@ def get_svn_contents_to_stash(targets, svn, out, keep, patch):
         answer = ''
         answers = ('y', 'n', 'yf', 'nf', 'ya', 'na', 'q', '?')
         while answer not in answers:
+            ansi_color(out, 'magenta', bold=True)
             out.write('Stash this hunk (%s)? ' % ','.join(answers))
+            ansi_reset(out)
             answer = sys.stdin.readline().rstrip().lower()
             if answer == '?':
                 out.write('''y: yes, stash this hunk
