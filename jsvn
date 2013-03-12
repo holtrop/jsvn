@@ -1234,13 +1234,21 @@ def revert_h(argv, svn, out, config):
                         break
     return RET_OK if did_something else RET_REEXEC
 
-def get_svn_contents_to_stash(targets, svn, out, keep, patch):
+def get_svn_contents_to_stash(targets, svn, out, keep, patch, externals):
     s_fd, s_fname = tempfile.mkstemp(prefix = 'svn.stash.')
     r_fd, r_fname = tempfile.mkstemp(prefix = 'svn.stash.')
     os.close(s_fd)
     os.close(r_fd)
     s_fh = open(s_fname, 'w')
     r_fh = open(r_fname, 'w')
+
+    if externals and len(targets) == 0:
+        targets = ['.']
+        proc = Popen([svn, 'status'], stdout=PIPE)
+        for line in iter(proc.stdout.readline, ''):
+            m = re.match(r"Performing status on external item at '(.*)':", line)
+            if m is not None:
+                targets.append(m.group(1))
 
     svars = {
         'revert_list': [],
@@ -1358,12 +1366,12 @@ q: quit and abort stash
 
     return s_fname, r_fname, svars['revert_list'], svars['n_insertions'], svars['n_deletions']
 
-def stash_save_h(args, svn, out, config, keep, patch):
+def stash_save_h(args, svn, out, config, keep, patch, externals):
     owd = os.getcwd()
     wc_dir = get_svn_wc_root(svn)
     os.chdir(wc_dir)
     s_fname, r_fname, revert_list, n_insertions, n_deletions = \
-            get_svn_contents_to_stash(args, svn, out, keep, patch)
+            get_svn_contents_to_stash(args, svn, out, keep, patch, externals)
     if len(revert_list) == 0:
         out.write('No changes stashed.\n')
     else:
@@ -1512,10 +1520,11 @@ def stash_drop_h(argv, svn, out, config):
 
 def stash_h(argv, svn, out, config):
     argv = argv[1:] # strip 'stash' command
-    opts, args = getopt.getopt(argv, 'kp',
-            ['list', 'pop', 'show', 'drop', 'keep', 'patch'])
+    opts, args = getopt.getopt(argv, 'ekp',
+            ['list', 'pop', 'show', 'drop', 'externals', 'keep', 'patch'])
     keep = False
     patch = False
+    externals = False
     for opt, arg in opts:
         if opt == '--list':
             return stash_list_h(args, svn, out, config)
@@ -1529,7 +1538,9 @@ def stash_h(argv, svn, out, config):
             keep = True
         elif opt in ('-p', '--patch'):
             patch = True
-    return stash_save_h(args, svn, out, config, keep, patch)
+        elif opt in ('-e', '--externals'):
+            externals = True
+    return stash_save_h(args, svn, out, config, keep, patch, externals)
 
 def root_h(argv, svn, out, config):
     out.write(get_svn_root_url(svn) + '\n')
