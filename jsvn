@@ -1355,6 +1355,10 @@ q: quit and abort stash
             svars['binary_file'] = True
         else:
             svars['hunk_buildup'] += line
+            if line.startswith('+'):
+                svars['n_insertions'] += 1
+            elif line.startswith('-'):
+                svars['n_deletions'] += 1
         if svars['quit']:
             break
     if not svars['quit']:
