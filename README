@@ -56,27 +56,38 @@ Implemented subcommands:
   - revert all affected files under given target path(s)
  root
   - output root URL (for use on shell such as "svn log $(svn root)/tags")
- stash [command]
+ stash [options] [file...]
   - allow temporarily saving changes to the working copy without committing
-  - the stashes behaves as a "stack" where "save" pushes a new stash object
-    and "pop" pops the newest one from the top of the stack
-  commands:
-    save [-k] (default if not specified):
-     - save changes as a "stash" object
-     - revert changes from working copy unless -k (keep working copy) given
-     - this only works with text files, not binary files
-    list:
-     - show a list of all stash objects
-    pop [-k] [id]:
-     - apply the stash object <id> back to the working copy
-     - the stash object is removed unless -k (keep) given
-     - <id> defaults to the newest stash object created
-    show [id]:
-     - display the diff stored in stash with ID <id>
-     - <id> defaults to the newest stash object created
-    drop [id]:
-     - delete stash object <id>
-     - <id> defaults to the newest stash object created
+  - the stashes behaves as a "stack" where stashing pushes a new stash object
+    and popping removes the newest one from the top of the stack
+  - binary files are ignored (a warning is printed) and not stashed
+  options:
+    -e, --externals
+      - also stash changes in externals (if no explicit targets given)
+      - this option is implicitly on if the configuration value
+        'stash_externals' is set to True
+    --noexternals
+      - reverse --externals (or the configuration value 'stash_externals')
+    -k, --keep
+      - create the stash object, but keep the changes locally as well
+      - with --pop, do not remove the stash object after reapplying it
+    -p, --patch
+      - interactively prompt for whether to stash each hunk
+    --list
+      - show a list of all stash objects
+    --pop [id]
+      - apply the stash object <id> back to the working copy
+      - the stash object is removed unless -k (keep) given
+      - <id> defaults to the newest stash object created
+    --show [id]
+      - display the diff stored in stash with ID <id>
+      - <id> defaults to the newest stash object created
+    --drop [id]
+      - delete stash object <id>
+      - <id> defaults to the newest stash object created
+    - if none of --list, --pop, --show, or --drop is given, a new stash object
+      is created containing the chosen differences
+    - if file is given, only the changes from the listed files will be stashed
  switch <short_name>
   - switch to 'trunk', branch name, or tag name without having to specify
     the full URL
@@ -144,6 +155,8 @@ Available configuration variables:
              for newly added files which should not automatically have the
              svn:executable property added for them even if the files are
              executable. The default value is ['.c', '.cc', '.h', '.txt'].
+  stash_externals: True or False to enable/disable whether '-e' is implicitly
+             on for 'stash' subcommand. Defaults to False.
 
 Configuration Examples:
   pager = 'less -FRXi' # enable case-insensitive searching in less

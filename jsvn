@@ -16,6 +16,7 @@ import types
 import getopt
 import signal
 import platform
+import tempfile
 
 STATUS_LINE_REGEX = r'[ACDIMRX?!~ ][CM ][L ][+ ][SX ][KOTB ]..(.+)'
 
@@ -72,7 +73,8 @@ def get_config(svn):
                 'branches': 'branch'},
             'svn': '',
             'ignore_executable_extensions':
-                ['.c', '.cc', '.h', '.txt']
+                ['.c', '.cc', '.h', '.txt'],
+            'stash_externals': False,
             }
 
     global_user_config_fname = os.path.expanduser('~/.jsvn')
@@ -1233,93 +1235,182 @@ def revert_h(argv, svn, out, config):
                         break
     return RET_OK if did_something else RET_REEXEC
 
-def stash_save_h(argv, svn, out, config):
-    keep_wc = False
-    options, args = getopt.getopt(argv, 'k')
-    for opt, val in options:
-        if opt == '-k':
-            keep_wc = True
+def get_svn_contents_to_stash(targets, svn, out, keep, patch, externals):
+    s_fd, s_fname = tempfile.mkstemp(prefix = 'svn.stash.')
+    r_fd, r_fname = tempfile.mkstemp(prefix = 'svn.stash.')
+    os.close(s_fd)
+    os.close(r_fd)
+    s_fh = open(s_fname, 'w')
+    r_fh = open(r_fname, 'w')
+
+    if externals and len(targets) == 0:
+        targets = ['.']
+        proc = Popen([svn, 'status'], stdout=PIPE)
+        for line in iter(proc.stdout.readline, ''):
+            m = re.match(r"Performing status on external item at '(.*)':", line)
+            if m is not None:
+                targets.append(m.group(1))
+
+    svars = {
+        'revert_list': [],
+        'skip_all': not patch,
+        'skip_file': True,
+        'answer': 'y',
+        'index_header': '',
+        'hunk_buildup': '',
+        'index_fname': '',
+        'prompted_for_index': False,
+        'quit': False,
+        'wrote_index_sf': False,
+        'wrote_index_rf': False,
+        'binary_file': False,
+        'n_insertions': 0,
+        'n_deletions': 0,
+    }
+    def update_answer():
+        if not patch:
+            svars['answer'] = 'y'
+            return
+        if svars['skip_file'] or svars['skip_all']:
+            return
+        if not svars['prompted_for_index']:
+            for line in svars['index_header'].rstrip().split('\n'):
+                colordiff(out, line)
+            svars['prompted_for_index'] = True
+        for li in svars['hunk_buildup'].rstrip().split('\n'):
+            colordiff(out, li)
+        answer = ''
+        answers = ('y', 'n', 'yf', 'nf', 'ya', 'na', 'q', '?')
+        while answer not in answers:
+            ansi_color(out, 'magenta', bold=True)
+            out.write('Stash this hunk (%s)? ' % ','.join(answers))
+            ansi_reset(out)
+            answer = sys.stdin.readline().rstrip().lower()
+            if answer == '?':
+                out.write('''y: yes, stash this hunk
+n: no, do not stash this hunk
+yf: yes, and stash every hunk from the rest of this file
+nf: no, and do not stash any hunk from the rest of this file
+ya: yes, and stash every remaining hunk
+na: no, and do not stash any remaining hunks
+q: quit and abort stash
+?: show this help
+''')
+                answer = ''
+        if answer == 'q':
+            svars['quit'] = True
+        elif answer[1:] == 'a':
+            svars['skip_all'] = True
+        elif answer[1:] == 'f':
+            svars['skip_file'] = True
+        svars['answer'] = answer[:1]
+
+    def flush_hunk():
+        if svars['hunk_buildup'] != '':
+            update_answer()
+            if svars['answer'] == 'y':
+                if not svars['wrote_index_sf']:
+                    s_fh.write(svars['index_header'])
+                    svars['wrote_index_sf'] = True
+                s_fh.write(svars['hunk_buildup'])
+            elif svars['answer'] == 'n':
+                if not svars['wrote_index_rf']:
+                    r_fh.write(svars['index_header'])
+                    svars['wrote_index_rf'] = True
+                r_fh.write(svars['hunk_buildup'])
+            svars['hunk_buildup'] = ''
+
+    def flush_file(new_file_name):
+        if svars['binary_file']:
+            ansi_color(out, 'yellow', bold=True)
+            out.write('Warning: not stashing binary file %s' % svars['index_fname'])
+            ansi_reset(out)
+            out.write('\n')
+        else:
+            flush_hunk()
+        if svars['wrote_index_sf']:
+            svars['revert_list'].append(svars['index_fname'])
+        svars['skip_file'] = False
+        svars['hunk_buildup'] = ''
+        svars['index_fname'] = new_file_name
+        svars['binary_file'] = False
+        svars['wrote_index_sf'] = False
+        svars['wrote_index_rf'] = False
+        svars['prompted_for_index'] = False
+
+    diff_proc = Popen([svn, 'diff'] + targets, stdout=PIPE)
+    for line in iter(diff_proc.stdout.readline, ''):
+        m = re.match(r'Index: (.*)', line)
+        if m is not None:
+            flush_file(m.group(1))
+            svars['index_header'] = line
+        elif (re.match(r'=+$', line) or
+              re.match(r'--- ', line) or
+              re.match(r'\+\+\+ ', line)):
+            svars['index_header'] += line
+        elif (re.match(r'@@ ', line) or re.match(r'Property.changes.on:', line)):
+            flush_hunk()
+            svars['hunk_buildup'] = line
+        elif re.match(r'Cannot display: file.marked.as.a.binary.type', line):
+            svars['binary_file'] = True
+        else:
+            svars['hunk_buildup'] += line
+            if line.startswith('+'):
+                svars['n_insertions'] += 1
+            elif line.startswith('-'):
+                svars['n_deletions'] += 1
+        if svars['quit']:
+            break
+    if not svars['quit']:
+        flush_file('')
+
+    s_fh.close()
+    r_fh.close()
+    if svars['quit']:
+        svars['revert_list'] = []
+
+    return s_fname, r_fname, svars['revert_list'], svars['n_insertions'], svars['n_deletions']
+
+def stash_save_h(args, svn, out, config, keep, patch, externals):
     owd = os.getcwd()
     wc_dir = get_svn_wc_root(svn)
     os.chdir(wc_dir)
-    stash_idx = get_next_stash_idx(svn)
-    stash_fname = get_stash_fname(svn, stash_idx)
-    fh = open(stash_fname, 'w')
-    proc = Popen([svn, 'diff'], stdout=PIPE)
-    wrote_something = False
-    found_binary_file = False
-    n_insertions = 0
-    n_deletions = 0
-    for line in iter(proc.stdout.readline, ''):
-        if re.match(r'Cannot.display..file.marked.as.a.binary.type',
-                line, flags=re.I):
-            found_binary_file = True
-        if line.startswith('-') and not line.startswith('---'):
-            n_deletions += 1
-        if line.startswith('+') and not line.startswith('+++'):
-            n_insertions += 1
-        fh.write(line)
-        wrote_something = True
-    proc.wait()
-    if found_binary_file:
-        out.write('Error: cannot stash with changes to binary files\n')
-        fh.close()
-        os.unlink(stash_fname)
-    elif not wrote_something:
-        out.write('Error: no changes to stash!\n')
-        fh.close()
-        os.unlink(stash_fname)
+    s_fname, r_fname, revert_list, n_insertions, n_deletions = \
+            get_svn_contents_to_stash(args, svn, out, keep, patch, externals)
+    if len(revert_list) == 0:
+        out.write('No changes stashed.\n')
     else:
-        # the stash is good, now revert the working copy changes
-        status_lines = Popen([svn, 'status', '--ignore-externals'],
-                stdout=PIPE).communicate()[0].split('\n')
-        files_changed = {}
-        for line in reversed(status_lines):
-            m = re.match(STATUS_LINE_REGEX, line)
-            if m is not None:
-                target = m.group(1)
-                action = line[0]
-                prop_action = line[1]
-                if (action in ('A', 'M', 'D')
-                        or prop_action == 'M'):
-                    if action != ' ':
-                        files_changed[target] = action
-                    else:
-                        files_changed[target] = prop_action
-                    if not keep_wc:
-                        # do the actual revert if -k not given
-                        Popen([svn, 'revert', target], stdout=PIPE).wait()
-                        if action == 'A':
-                            # a file was added, so to stash it we must
-                            # remove it in addition to reverting the add
-                            if os.path.isfile(target):
-                                os.unlink(target)
-                            elif os.path.isdir(target):
-                                if len(os.listdir(target)) == 0:
-                                    os.rmdir(target)
-                            else:
-                                raise ValueError('unhandled target type')
-        # write stash info
-        if len(files_changed) == 1:
-            fname = files_changed.keys()[0]
-            fh.write('#info: %s: %s\n' % (files_changed[fname], fname))
-        else:
-            num_actions = {'A': 0, 'M': 0, 'D': 0}
-            for k in files_changed:
-                if files_changed[k] in num_actions:
-                    num_actions[files_changed[k]] += 1
-            for a in num_actions:
-                if num_actions[a] > 0:
-                    fh.write('#info: %s: %d\n' % (a, num_actions[a]))
-        if n_deletions > 0:
-            fh.write('#info: -%d\n' % n_deletions)
-        if n_insertions > 0:
-            fh.write('#info: +%d\n' % n_insertions)
-        now = datetime.datetime.now()
-        fh.write('#info: @%04d-%02d-%02d %02d:%02d\n' %
-                (now.year, now.month, now.day, now.hour, now.minute))
-        fh.close()
-        out.write('Created stash %d\n' % stash_idx)
+        if not keep:
+            for rf in revert_list:
+                Popen([svn, 'revert', rf], stdout=PIPE).wait()
+            if r_fname != '':
+                Popen([svn, 'patch', r_fname], stdout=PIPE).wait()
+        if s_fname != '':
+            stash_idx = get_next_stash_idx(svn)
+            stash_fname = get_stash_fname(svn, stash_idx)
+            stash_fh = open(stash_fname, 'w')
+            s_fh = open(s_fname, 'r')
+            for line in iter(s_fh.readline, ''):
+                stash_fh.write(line)
+            s_fh.close()
+            # write stash info
+            if n_deletions > 0:
+                stash_fh.write('#info: -%d\n' % n_deletions)
+            if n_insertions > 0:
+                stash_fh.write('#info: +%d\n' % n_insertions)
+            if len(revert_list) == 1:
+                stash_fh.write('#info: F: %s\n' % revert_list[0])
+            else:
+                stash_fh.write('#info: F: %d files\n' % len(revert_list))
+            now = datetime.datetime.now()
+            stash_fh.write('#info: @%04d-%02d-%02d %02d:%02d\n' %
+                    (now.year, now.month, now.day, now.hour, now.minute))
+            stash_fh.close()
+            out.write('Created stash %d\n' % stash_idx)
+    if s_fname != '':
+        os.unlink(s_fname)
+    if r_fname != '':
+        os.unlink(r_fname)
     os.chdir(owd)
     return RET_OK
 
@@ -1331,6 +1422,7 @@ def stash_list_h(argv, svn, out, config):
         add_text = ''
         modify_text = ''
         delete_text = ''
+        summary_text = ''
         date = ''
         stash_fname = get_stash_fname(svn, si)
         fh = open(stash_fname, 'r')
@@ -1344,6 +1436,8 @@ def stash_list_h(argv, svn, out, config):
                     modify_text = info
                 elif info.startswith('D:'):
                     delete_text = info
+                elif info.startswith('F:'):
+                    summary_text = info[3:]
                 elif info.startswith('-'):
                     del_text = info
                 elif info.startswith('+'):
@@ -1357,6 +1451,7 @@ def stash_list_h(argv, svn, out, config):
                 (add_text, 'green'),
                 (modify_text, 'yellow'),
                 (delete_text, 'red'),
+                (summary_text, 'magenta'),
                 ]
         for elem, color in elements:
             if elem != '':
@@ -1380,12 +1475,7 @@ def stash_list_h(argv, svn, out, config):
         out.write('\n')
     return RET_OK
 
-def stash_pop_h(argv, svn, out, config):
-    keep = False
-    options, args = getopt.getopt(argv, 'k')
-    for opt, val in options:
-        if opt == '-k':
-            keep = True
+def stash_pop_h(args, svn, out, config, keep):
     owd = os.getcwd()
     wc_dir = get_svn_wc_root(svn)
     os.chdir(wc_dir)
@@ -1443,23 +1533,30 @@ def stash_drop_h(argv, svn, out, config):
 
 def stash_h(argv, svn, out, config):
     argv = argv[1:] # strip 'stash' command
-    action = 'save'
-    if len(argv) >= 1:
-        if not argv[0].startswith('-'):
-            action = argv[0]
-            argv = argv[1:]
-    # now argv only contains options/arguments to the stash subcommand itself
-    actions = {
-            'save': stash_save_h,
-            'list': stash_list_h,
-            'pop': stash_pop_h,
-            'show': stash_show_h,
-            'drop': stash_drop_h
-            }
-    if action in actions:
-        return actions[action](argv, svn, out, config)
-    sys.stderr.write('Unknown action "%s"\n' % action)
-    return RET_ERR
+    opts, args = getopt.getopt(argv, 'ekp',
+            ['list', 'pop', 'show', 'drop', 'externals', 'noexternals',
+             'keep', 'patch'])
+    keep = False
+    patch = False
+    externals = config['stash_externals']
+    for opt, arg in opts:
+        if opt == '--list':
+            return stash_list_h(args, svn, out, config)
+        elif opt == '--pop':
+            return stash_pop_h(args, svn, out, config, keep)
+        elif opt == '--show':
+            return stash_show_h(args, svn, out, config)
+        elif opt == '--drop':
+            return stash_drop_h(args, svn, out, config)
+        elif opt in ('-k', '--keep'):
+            keep = True
+        elif opt in ('-p', '--patch'):
+            patch = True
+        elif opt in ('-e', '--externals'):
+            externals = True
+        elif opt == '--noexternals':
+            externals = False
+    return stash_save_h(args, svn, out, config, keep, patch, externals)
 
 def root_h(argv, svn, out, config):
     out.write(get_svn_root_url(svn) + '\n')
