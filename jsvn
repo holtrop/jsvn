@@ -1265,7 +1265,8 @@ def get_svn_contents_to_stash(targets, svn, out, keep, patch):
         if svars['skip_file'] or svars['skip_all']:
             return
         if not svars['prompted_for_index']:
-            out.write(svars['index_header'])
+            for line in svars['index_header'].rstrip().split('\n'):
+                colordiff(out, line)
             svars['prompted_for_index'] = True
         for li in svars['hunk_buildup'].rstrip().split('\n'):
             colordiff(out, li)
