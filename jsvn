@@ -1412,7 +1412,7 @@ def stash_save_h(args, svn, out, config, keep, patch, externals):
         out.write('No changes stashed.\n')
     else:
         if not keep:
-            for rf in revert_list:
+            for rf in reversed(revert_list):
                 Popen([svn, 'revert', rf], stdout=PIPE).wait()
             if r_fname != '':
                 Popen([svn, 'patch', r_fname], stdout=PIPE).wait()
