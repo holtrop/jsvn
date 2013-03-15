@@ -467,6 +467,8 @@ def get_unknowns(svn):
     return unknowns
 
 def descendant_path(child, parent):
+    if parent == '.':
+        parent = os.getcwd()
     if child[0] != '/' and parent[0] == '/':
         child = os.getcwd() + '/' + child
     elif child[0] == '/' and parent[0] != '/':
@@ -559,6 +561,12 @@ def filter_add_output(fh, out, svn, config):
                     del_svn_property(svn, 'svn:executable', path)
         out.write(line)
         out.write('\n')
+
+def relpath(path):
+    cwdprefix = os.getcwd() + '/'
+    if path.startswith(cwdprefix):
+        return path[len(cwdprefix):]
+    return path
 
 ###########################################################################
 # Subcommand Handlers                                                     #
@@ -1243,13 +1251,25 @@ def get_svn_contents_to_stash(targets, svn, out, keep, patch, externals):
     s_fh = open(s_fname, 'w')
     r_fh = open(r_fname, 'w')
 
+    external_list = []
+    directories_added = []
+    status_cmd = [svn, 'status']
+    if not externals:
+        status_cmd += ['--ignore-externals']
+    status_proc = Popen(status_cmd, stdout=PIPE)
+    for line in iter(status_proc.stdout.readline, ''):
+        m = re.match(r"Performing status on external item at '(.*)':", line)
+        if m is not None:
+            external_list.append(m.group(1))
+        m = re.match(STATUS_LINE_REGEX, line)
+        if m is not None:
+            path = m.group(1)
+            if line[0] == 'A':
+                if os.path.isdir(path):
+                    directories_added.append(relpath(path))
+
     if externals and len(targets) == 0:
-        targets = ['.']
-        proc = Popen([svn, 'status'], stdout=PIPE)
-        for line in iter(proc.stdout.readline, ''):
-            m = re.match(r"Performing status on external item at '(.*)':", line)
-            if m is not None:
-                targets.append(m.group(1))
+        targets = ['.'] + external_list
 
     svars = {
         'revert_list': [],
@@ -1363,6 +1383,17 @@ q: quit and abort stash
             break
     if not svars['quit']:
         flush_file('')
+
+    for da in directories_added:
+        stash_da = len(targets) == 0
+        for t in targets:
+            if descendant_path(da, t):
+                stash_da = True
+                break
+        if stash_da:
+            s_fh.write('#dir: %s\n' % da)
+            if not da in svars['revert_list']:
+                svars['revert_list'].append(da)
 
     s_fh.close()
     r_fh.close()
