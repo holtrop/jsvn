@@ -1400,13 +1400,13 @@ q: quit and abort stash
     if svars['quit']:
         svars['revert_list'] = []
 
-    return s_fname, r_fname, svars['revert_list'], svars['n_insertions'], svars['n_deletions']
+    return s_fname, r_fname, svars['revert_list'], svars['n_insertions'], svars['n_deletions'], directories_added
 
 def stash_save_h(args, svn, out, config, keep, patch, externals):
     owd = os.getcwd()
     wc_dir = get_svn_wc_root(svn)
     os.chdir(wc_dir)
-    s_fname, r_fname, revert_list, n_insertions, n_deletions = \
+    s_fname, r_fname, revert_list, n_insertions, n_deletions, directories_added = \
             get_svn_contents_to_stash(args, svn, out, keep, patch, externals)
     if len(revert_list) == 0:
         out.write('No changes stashed.\n')
@@ -1414,6 +1414,8 @@ def stash_save_h(args, svn, out, config, keep, patch, externals):
         if not keep:
             for rf in reversed(revert_list):
                 Popen([svn, 'revert', rf], stdout=PIPE).wait()
+                if rf in directories_added and len(os.listdir(rf)) == 0:
+                    os.rmdir(rf)
             if r_fname != '':
                 Popen([svn, 'patch', r_fname], stdout=PIPE).wait()
         if s_fname != '':
