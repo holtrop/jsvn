@@ -1516,6 +1516,12 @@ def stash_pop_h(args, svn, out, config, keep):
         if len(args) >= 1:
             stash_idx = int(args[0])
         stash_fname = get_stash_fname(svn, stash_idx)
+        fh = open(stash_fname, 'r')
+        for line in iter(fh.readline, ''):
+            m = re.match('#dir: (.*)', line)
+            if m is not None:
+                Popen([svn, 'mkdir', m.group(1)]).wait()
+        fh.close()
         p = Popen([svn, 'patch', stash_fname], stdout=PIPE)
         filter_update(p.stdout, out)
         rc = p.wait()
@@ -1540,6 +1546,13 @@ def stash_show_h(argv, svn, out, config):
             stash_fname = get_stash_fname(svn, stash_id)
             fd = open(stash_fname, 'r')
             for line in iter(fd.readline, ''):
+                m = re.match('#dir: (.*)', line)
+                if m is not None:
+                    ansi_color(out, 'magenta', bold=True)
+                    out.write('New Directory: %s' % m.group(1))
+                    ansi_reset(out)
+                    out.write('\n')
+                    continue
                 if not re.match('#info:', line):
                     colordiff(out, line)
             fd.close()
