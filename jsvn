@@ -1539,15 +1539,16 @@ def stash_h(argv, svn, out, config):
     keep = False
     patch = False
     externals = config['stash_externals']
+    operation = 'save'
     for opt, arg in opts:
         if opt == '--list':
-            return stash_list_h(args, svn, out, config)
+            operation = 'list'
         elif opt == '--pop':
-            return stash_pop_h(args, svn, out, config, keep)
+            operation = 'pop'
         elif opt == '--show':
-            return stash_show_h(args, svn, out, config)
+            operation = 'show'
         elif opt == '--drop':
-            return stash_drop_h(args, svn, out, config)
+            operation = 'drop'
         elif opt in ('-k', '--keep'):
             keep = True
         elif opt in ('-p', '--patch'):
@@ -1556,6 +1557,14 @@ def stash_h(argv, svn, out, config):
             externals = True
         elif opt == '--noexternals':
             externals = False
+    if operation == 'list':
+        return stash_list_h(args, svn, out, config)
+    elif operation == 'pop':
+        return stash_pop_h(args, svn, out, config, keep)
+    elif operation == 'show':
+        return stash_show_h(args, svn, out, config)
+    elif operation == 'drop':
+        return stash_drop_h(args, svn, out, config)
     return stash_save_h(args, svn, out, config, keep, patch, externals)
 
 def root_h(argv, svn, out, config):
