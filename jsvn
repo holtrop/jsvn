@@ -1224,11 +1224,14 @@ def revert_h(argv, svn, out, config):
         Popen([svn, 'revert'] + argv).wait()
         return RET_OK
     did_something = False
-    p = Popen([svn, 'status'], stdout=PIPE)
     for i, target in enumerate(argv):
         if target.endswith('/'):
             argv[i] = target[:-1]
+    p = Popen([svn, 'status'], stdout=PIPE)
+    status_lines = []
     for line in iter(p.stdout.readline, ''):
+        status_lines.append(line)
+    for line in reversed(status_lines):
         m = re.match(STATUS_LINE_REGEX, line)
         if m is not None:
             action = line[0]
