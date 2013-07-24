@@ -172,6 +172,9 @@ Configuration Examples:
 Author: Josh Holtrop
 
 History:
+  v1.6 - 2013-07-24
+    - rework 'stash' subcommand to operate on individual hunks
+    - add 'revert' subcommand handler
   v1.5 - 2012-11-08
     - add -v (verbose) flag to 'tag' subcommand
     - allow optional source argument to 'branch' subcommand
