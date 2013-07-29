@@ -35,6 +35,16 @@ Implemented subcommands:
       or a tag or branch name)
     - if <source> is not given the HEAD of the current working-copy URL is used.
     - also switch to the new branch if -s is given
+ clean [-x] {-n|-f} [path...]
+  - remove (or list) unversioned items
+  options:
+    -x, --ignore-ignores
+      - remove/list unversioned items that are ignored by Subversion
+    -n, --dry-run
+      - perform a dry-run, i.e. list files that would be removed but do not
+        actually remove them
+    -f, --force
+      - perform the actual removal of unversioned files
  diff
   - allow specifying ref1..ref2 syntax to show the diff between two references
     - references can be tag names, branch names, or 'trunk'

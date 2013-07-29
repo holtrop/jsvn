@@ -17,6 +17,7 @@ import getopt
 import signal
 import platform
 import tempfile
+import shutil
 
 STATUS_LINE_REGEX = r'[ACDIMRX?!~ ][CM ][L ][+ ][SX ][KOTB ]..(.+)'
 
@@ -1631,6 +1632,47 @@ def url_h(argv, svn, out, config):
     out.write(get_svn_url(svn, path) + '\n')
     return RET_OK
 
+def clean_h(argv, svn, out, config):
+    argv = argv[1:] # strip command
+    opts, args = getopt.getopt(argv, 'fnx',
+            ['force', 'dry-run', 'ignore-ignores'])
+    force = False
+    dry_run = False
+    ignore_ignores = False
+    for opt, arg in opts:
+        if opt in ('-f', '--force'):
+            force = True
+        elif opt in ('-n', '--dry-run'):
+            dry_run = True
+        elif opt in ('-x', '--ignore-ignores'):
+            ignore_ignores = True
+    if not force and not dry_run:
+        sys.stderr.write('Error: specify either -n or -f\n')
+        return RET_ERR
+    if force and dry_run:
+        sys.stderr.write('Error: specify only one of -n or -f\n')
+        return RET_ERR
+    status_args = args
+    if ignore_ignores:
+        status_args.append('--no-ignore')
+    clean_paths = []
+    pout = Popen([svn, 'status'] + status_args, stdout=PIPE).stdout
+    for line in iter(pout.readline, ''):
+        m = re.match(STATUS_LINE_REGEX, line)
+        if m is not None:
+            action = line[0]
+            if action in ('?', 'I'):
+                clean_paths.append(m.group(1))
+    for cp in clean_paths:
+        if dry_run:
+            out.write("Would remove %s\n" % cp)
+        if force:
+            if os.path.isdir(cp):
+                shutil.rmtree(cp)
+            elif os.path.isfile(cp):
+                os.unlink(cp)
+    return RET_OK
+
 ###########################################################################
 # Main                                                                    #
 ###########################################################################
@@ -1727,6 +1769,7 @@ def do_cmd(argv, realsvn, config, expand=True):
             'add': add_h,
             'bisect': bisect_h,
             'branch': branch_h,
+            'clean': clean_h,
             'externals': externals_h,
             'switch': switch_h,
             'merge': merge_h,
