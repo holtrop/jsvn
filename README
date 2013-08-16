@@ -182,6 +182,9 @@ Configuration Examples:
 Author: Josh Holtrop
 
 History:
+  v1.7 - 2013-08-16
+    - add "clean" subcommand handler
+    - bugfix: revert subcommand handler: revert deleted items
   v1.6 - 2013-07-24
     - rework 'stash' subcommand to operate on individual hunks
     - add 'revert' subcommand handler
