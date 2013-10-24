@@ -1232,23 +1232,26 @@ def revert_h(argv, svn, out, config):
         if target.endswith('/'):
             argv[i] = target[:-1]
     p = Popen([svn, 'status'], stdout=PIPE)
-    status_lines = []
+    modified_files = []
     for line in iter(p.stdout.readline, ''):
-        status_lines.append(line)
-    for line in reversed(status_lines):
         m = re.match(STATUS_LINE_REGEX, line)
         if m is not None:
             action = line[0]
             prop_action = line[1]
             if action in ('A', 'M', 'D', '!') or prop_action == 'M':
                 fname = m.group(1)
-                for target in argv:
-                    if fname.startswith(os.getcwd() + os.sep):
-                        fname = fname[len(os.getcwd() + os.sep):]
-                    if target == '.' or target == fname or fname.startswith(target + os.sep):
-                        Popen([svn, 'revert', fname]).wait()
-                        did_something = True
-                        break
+                if action in ('D', '!'):
+                    modified_files.append(fname)
+                else:
+                    modified_files.insert(0, fname)
+    for fname in modified_files:
+        for target in argv:
+            if fname.startswith(os.getcwd() + os.sep):
+                fname = fname[len(os.getcwd() + os.sep):]
+            if target == '.' or target == fname or fname.startswith(target + os.sep):
+                Popen([svn, 'revert', fname]).wait()
+                did_something = True
+                break
     return RET_OK if did_something else RET_REEXEC
 
 def get_svn_contents_to_stash(targets, svn, out, keep, patch, externals):
