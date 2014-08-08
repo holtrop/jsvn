@@ -410,6 +410,9 @@ def filter_update(pout, out):
                 out.write('\n')
             out.write(line)
             continue
+        if re.match(r'^Removed external ', line):
+            out.write(line)
+            continue
 
         # anything not matched yet will cause an external to be shown
         if not external_printed:
