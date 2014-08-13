@@ -1244,7 +1244,7 @@ def revert_h(argv, svn, out, config):
         if m is not None:
             action = line[0]
             prop_action = line[1]
-            if action in ('A', 'M', 'D', '!') or prop_action == 'M':
+            if action in ('A', 'M', 'C', 'D', '!') or prop_action == 'M':
                 fname = m.group(1)
                 if action in ('D', '!'):
                     modified_files.append(fname)
