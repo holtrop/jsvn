@@ -165,6 +165,8 @@ Available configuration variables:
              for newly added files which should not automatically have the
              svn:executable property added for them even if the files are
              executable. The default value is ['.c', '.cc', '.h', '.txt'].
+  ignore_symlinks: True or False to hide unversioned symlinks from appearing
+             in status output (default: False)
   stash_externals: True or False to enable/disable whether '-e' is implicitly
              on for 'stash' subcommand. Defaults to False.
 

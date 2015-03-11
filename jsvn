@@ -68,6 +68,7 @@ def get_config(svn):
             'pager': '',
             'use_pager': True,
             'use_color': True,
+            'ignore_symlinks': False,
             'aliases': {
                 # default jsvn aliases
                 'tags': 'tag',
@@ -1184,12 +1185,15 @@ def status_h(argv, svn, out, config):
             continue
 
         # look for lines that should be ignored
-        if re.match(STATUS_LINE_REGEX, line):
+        m = re.match(STATUS_LINE_REGEX, line)
+        if m is not None:
             action = line[0]
             if action == 'X':
                 continue            # don't print directory externals
             elif line.startswith('    X  '):
                 continue            # don't print unmodified file externals
+            elif action == '?' and config['ignore_symlinks'] and os.path.islink(m.group(1)):
+                    continue
 
         # anything not matched yet will cause an external to be shown
         if not external_printed:
