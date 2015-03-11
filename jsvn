@@ -462,13 +462,14 @@ def filter_status(line, out):
     ansi_reset(out)
     out.write('\n')
 
-def get_unknowns(svn):
+def get_unknowns(svn, config):
     unknowns = []
     pout = Popen([svn, 'status'], stdout=PIPE).stdout
     for line in iter(pout.readline, ''):
         m = re.match(r'\?       (.*)$', line)
         if m is not None:
-            unknowns.append(m.group(1))
+            if not (config['ignore_symlinks'] and os.path.islink(m.group(1))):
+                unknowns.append(m.group(1))
     return unknowns
 
 def descendant_path(child, parent):
@@ -593,7 +594,7 @@ def add_h(argv, svn, out, config):
     # for each target specified, check if there are unversioned items
     # underneath it (for directories) and add them as well
     # if none are found, fall back to the native svn add
-    unknowns = get_unknowns(svn)
+    unknowns = get_unknowns(svn, config)
     for path in argv:
         if path == '.':
             path = os.getcwd()
