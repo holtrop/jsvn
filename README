@@ -35,6 +35,10 @@ Implemented subcommands:
       or a tag or branch name)
     - if <source> is not given the HEAD of the current working-copy URL is used.
     - also switch to the new branch if -s is given
+ checkout [options] [url] [wc_path]
+  - if a URL is given that ends with /trunk and no working copy path is given,
+    then the last directory component before "/trunk" is used as the working
+    copy path
  clean [-x] {-n|-f} [path...]
   - remove (or list) unversioned items
   options:

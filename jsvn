@@ -1650,6 +1650,12 @@ def url_h(argv, svn, out, config):
     out.write(get_svn_url(svn, path) + '\n')
     return RET_OK
 
+def checkout_h(argv, svn, out, config):
+    if re.search(r'://.*/trunk$', argv[-1]):
+        argv += [argv[-1].split("/")[-2]]
+    Popen([svn] + argv, stdout=out).wait()
+    return RET_OK
+
 def clean_h(argv, svn, out, config):
     argv = argv[1:] # strip command
     opts, args = getopt.getopt(argv, 'fnx',
@@ -1787,6 +1793,7 @@ def do_cmd(argv, realsvn, config, expand=True):
             'add': add_h,
             'bisect': bisect_h,
             'branch': branch_h,
+            'checkout': checkout_h,
             'clean': clean_h,
             'externals': externals_h,
             'switch': switch_h,
