@@ -1651,8 +1651,9 @@ def url_h(argv, svn, out, config):
     return RET_OK
 
 def checkout_h(argv, svn, out, config):
-    if re.search(r'://.*/trunk$', argv[-1]):
-        argv += [argv[-1].split("/")[-2]]
+    co_url = argv[-1].rstrip('/')
+    if re.search(r'://.*/trunk$', co_url):
+        argv += [co_url.split("/")[-2]]
     Popen([svn] + argv, stdout=out).wait()
     return RET_OK
 
