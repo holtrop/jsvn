@@ -402,7 +402,7 @@ def filter_update(pout, out):
             continue
         if re.match(r'\s*$', line):
             continue
-        if re.match(r'External at revision ', line):
+        if re.match(r'(External at|Updated external to) revision ', line):
             if external_printed:
                 out.write(line)
             continue
