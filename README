@@ -49,6 +49,9 @@ Implemented subcommands:
         actually remove them
     -f, --force
       - perform the actual removal of unversioned files
+ commit
+  - removes trailing whitespace (including end-of-line characters) from commit
+    messages before committing if neither -m nor -F arguments are given
  diff
   - allow specifying ref1..ref2 syntax to show the diff between two references
     - references can be tag names, branch names, or 'trunk'

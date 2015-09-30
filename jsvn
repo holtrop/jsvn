@@ -20,6 +20,7 @@ import tempfile
 import shutil
 
 STATUS_LINE_REGEX = r'[ACDIMRX?!~ ][CM ][L ][+ ][SX ][KOTB ]..(.+)'
+COMMIT_IGNORE_LINE = "--This line, and those below, will be ignored--"
 
 ###########################################################################
 # Subcommand Handler Return Values                                        #
@@ -576,6 +577,15 @@ def relpath(path):
     if path.startswith(cwdprefix):
         return path[len(cwdprefix):]
     return path
+
+def get_editor():
+    if 'EDITOR' in os.environ and os.environ['EDITOR'] != '':
+        return os.environ['EDITOR']
+    for p_ent in os.environ['PATH'].split(':'):
+        editor_path = os.path.join(p_ent, 'editor')
+        if os.path.isfile(editor_path):
+            return editor_path
+    return 'vim'
 
 ###########################################################################
 # Subcommand Handlers                                                     #
@@ -1698,6 +1708,39 @@ def clean_h(argv, svn, out, config):
                 os.unlink(cp)
     return RET_OK
 
+def commit_h(argv, svn, out, config):
+    argv = argv[1:] # strip command
+    for arg in argv:
+        if re.search(r'^-[Fm]', arg):
+            # Do not handle the commit if the user supplied a -m or -F.
+            return RET_REEXEC
+    commit_file_fd, commit_file_fname = tempfile.mkstemp('.tmp', 'svn-commit')
+    os.close(commit_file_fd)
+    commit_file_fh = open(commit_file_fname, 'w')
+    commit_file_fh.write("\n%s\n\n" % COMMIT_IGNORE_LINE)
+    pout = Popen([svn, 'status'], stdout=PIPE).stdout
+    commit_file_fh.write(pout.read())
+    commit_file_fh.close()
+    Popen([get_editor(), commit_file_fname]).wait()
+    commit_file_fh = open(commit_file_fname, 'r')
+    commit_file_contents = commit_file_fh.read()
+    commit_file_fh.close()
+    commit_message = ""
+    for line in commit_file_contents.splitlines():
+        if line == COMMIT_IGNORE_LINE:
+            break
+        commit_message += line + "\n"
+    commit_message = commit_message.rstrip()
+    if commit_message == "":
+        out.write("Aborting commit due to empty commit message.")
+    else:
+        commit_file_fh = open(commit_file_fname, 'w')
+        commit_file_fh.write(commit_message)
+        commit_file_fh.close()
+        Popen([svn, 'commit'] + argv + ['-F', commit_file_fname]).wait()
+    os.unlink(commit_file_fname)
+    return RET_OK
+
 ###########################################################################
 # Main                                                                    #
 ###########################################################################
@@ -1796,6 +1839,7 @@ def do_cmd(argv, realsvn, config, expand=True):
             'branch': branch_h,
             'checkout': checkout_h,
             'clean': clean_h,
+            'commit': commit_h,
             'externals': externals_h,
             'switch': switch_h,
             'merge': merge_h,
