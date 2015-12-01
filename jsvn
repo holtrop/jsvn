@@ -1702,7 +1702,9 @@ def clean_h(argv, svn, out, config):
         if dry_run:
             out.write("Would remove %s\n" % cp)
         if force:
-            if os.path.isdir(cp):
+            if os.path.islink(cp):
+                os.unlink(cp)
+            elif os.path.isdir(cp):
                 shutil.rmtree(cp)
             elif os.path.isfile(cp):
                 os.unlink(cp)
