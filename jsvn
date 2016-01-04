@@ -1734,7 +1734,7 @@ def commit_h(argv, svn, out, config):
         commit_message += line + "\n"
     commit_message = commit_message.rstrip()
     if commit_message == "":
-        out.write("Aborting commit due to empty commit message.")
+        out.write("Aborting commit due to empty commit message.\n")
     else:
         commit_file_fh = open(commit_file_fname, 'w')
         commit_file_fh.write(commit_message)
