@@ -96,7 +96,7 @@ class LogEntry(object):
         self.revision = 0
         self.user = ''
         self.date = ''
-        self.lines = ''
+        self.lines_text = ''
         self.message_lines = 0
         self.changed_paths = []
         self.message = []
