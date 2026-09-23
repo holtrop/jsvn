@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # Josh's SVN wrapper script
 #
@@ -9,15 +9,20 @@ import sys
 import os
 import re
 import time
-from subprocess import *
+from subprocess import PIPE
+from subprocess import Popen as _Popen
 import traceback
 import datetime
-import types
 import getopt
 import signal
 import platform
 import tempfile
 import shutil
+
+def Popen(*args, **kwargs):
+    if 'text' not in kwargs and 'universal_newlines' not in kwargs:
+        kwargs['universal_newlines'] = True
+    return _Popen(*args, **kwargs)
 
 STATUS_LINE_REGEX = r'[ACDIMRX?!~ ][CM ][L ][+ ][SX ][KOTB ]..(.+)'
 COMMIT_IGNORE_LINE = "--This line, and those below, will be ignored--"
@@ -108,13 +113,13 @@ class LogEntry(object):
         for line in iter(fd.readline, ''):
             line = line.rstrip()
             if mode == 'normal' and re.match(r'r\d+\s+\|', line):
-                parts = map(lambda x: x.strip(), line.split('|'))
+                parts = [x.strip() for x in line.split('|')]
                 if len(parts) == 4:
                     self.revision = int(parts[0][1:])
                     self.user = parts[1]
                     self.date = parts[2]
                     self.lines_text = parts[3]
-                    m = re.match('(\d+)\sline', self.lines_text)
+                    m = re.match(r'(\d+)\sline', self.lines_text)
                     if m is not None:
                         self.message_lines = int(m.group(1))
             elif mode == 'normal' and re.match(r'Changed.paths:', line):
@@ -197,7 +202,7 @@ class LogEntry(object):
             len_written += write(self.user)
             ansi_reset(out)
 
-            m = re.match('\d{4}-(\d{2}-\d{2}\s\d{2}:\d{2})', self.date)
+            m = re.match(r'\d{4}-(\d{2}-\d{2}\s\d{2}:\d{2})', self.date)
             if m is not None:
                 len_written += write(' ')
                 ansi_color(out, 'magenta')
@@ -498,7 +503,7 @@ def get_stash_ids(svn):
     stash_files = os.listdir(stashes_dir)
     stash_ids = {}
     for sf in stash_files:
-        m = re.match('stash\.(\d+)$', sf)
+        m = re.match(r'stash\.(\d+)$', sf)
         if m is not None:
             stash_ids[int(m.group(1))] = 1
     return sorted(stash_ids.keys())
@@ -541,7 +546,7 @@ def find_branched_revision(svn, branch_url, branch_path, base_path):
     p = Popen([svn, 'log', '-v', branch_url], stdout=PIPE)
     search_path = branch_path
     for line in iter(p.stdout.readline, ''):
-        m = re.match('\s+A\s+(.*?)\s+\(from\s+(.*?):(\d+)\)\s*$', line)
+        m = re.match(r'\s+A\s+(.*?)\s+\(from\s+(.*?):(\d+)\)\s*$', line)
         if m is not None:
             new_path, old_path, rev = m.group(1, 2, 3)
             if new_path == search_path:
@@ -563,7 +568,7 @@ def find_common_ancestor(svn, url1, path1, url2, path2):
 def filter_add_output(fh, out, svn, config):
     for line in iter(fh.readline, ''):
         line = line.strip()
-        m = re.match('A\s+(.*)$', line)
+        m = re.match(r'A\s+(.*)$', line)
         if m is not None:
             path = m.group(1)
             for ext in config['ignore_executable_extensions']:
@@ -596,7 +601,7 @@ def add_h(argv, svn, out, config):
         # do not handle if no targets are passed
         # no output filtering needed since nothing will be added
         return RET_REEXEC
-    if len(filter(lambda x: x.startswith('-'), argv)) != 0:
+    if any(x.startswith('-') for x in argv):
         # do not handle if any options are passed
         p = Popen([svn, 'add'] + argv, stdout=PIPE)
         filter_add_output(p.stdout, out, svn, config)
@@ -645,7 +650,7 @@ Operations:
         fh = open(path, 'r')
         line = fh.readline()
         fh.close()
-        m = re.match('(\d+)$', line)
+        m = re.match(r'(\d+)$', line)
         if m is None:
             return -2
         return int(m.group(1))
@@ -677,7 +682,7 @@ Operations:
                 update_h(['update', '-r%d' % bad_rev], svn, out, config)
             out.write('The first bad revision is %d\n' % get_svn_wc_revision(svn))
             return
-        rev = revs[len(revs) / 2]
+        rev = revs[len(revs) // 2]
         update_h(['update', '-r%d' % rev], svn, out, config)
         out.write('Bisect: inspecting revision %d, %d revisions remaining\n'
                 % (rev, len(revs)))
@@ -969,7 +974,7 @@ def watch_lock_h(argv, svn, out, config):
             last_lock_owner = lock_owner
         time.sleep(60)
 
-    out.write('''
+    out.write(r'''
  _   _       _            _            _ _
 | | | |_ __ | | ___   ___| | _____  __| | |
 | | | | '_ \| |/ _ \ / __| |/ / _ \/ _` | |
@@ -986,14 +991,14 @@ def users_h(argv, svn, out, config):
     users = {}
     p = Popen([svn, 'log', '-q', path], stdout=PIPE)
     for line in iter(p.stdout.readline, ''):
-        m = re.match('r\d+\s*\|([^|]+)\|', line)
+        m = re.match(r'r\d+\s*\|([^|]+)\|', line)
         if m is not None:
             user = m.group(1).strip()
             if not user.lower() in users:
                 users[user.lower()] = [user, 1]
             else:
                 users[user.lower()][1] += 1
-    values = users.values()
+    values = list(users.values())
     values.sort(key = lambda x: x[1], reverse = True)
     for v in values:
         out.write("%8d %s\n" % (v[1], v[0]))
@@ -1052,7 +1057,7 @@ def lockable_h(argv, svn, out, config):
 def diff_h(argv, svn, out, config):
     doing_summarize = '--summarize' in argv
     for i, v in enumerate(argv):
-        m = re.match('(.*?)(\.\.\.?)(.*)$', v)
+        m = re.match(r'(.*?)(\.\.\.?)(.*)$', v)
         if m is not None:
             ref1, operator, ref2 = m.group(1, 2, 3)
             url1, path1 = resolve_reference(svn, ref1)
@@ -1086,7 +1091,7 @@ def log_h(argv, svn, out, config):
     filters = []
     pretty = 'default'
     for i, v in enumerate(argv):
-        m = re.match('(.*)(\.\.)(.*)$', v)
+        m = re.match(r'(.*)(\.\.)(.*)$', v)
         if m is not None:
             ref1, operator, ref2 = m.group(1, 2, 3)
             url1, path1 = resolve_reference(svn, ref1)
@@ -1115,7 +1120,7 @@ def log_h(argv, svn, out, config):
                 if len(argv) < i + 2:
                     sys.stderr.write('Error: --filter requires argument\n')
                     return RET_ERR
-                m = re.match('(\S+)=(/?)(.*)$', argv[i + 1])
+                m = re.match(r'(\S+)=(/?)(.*)$', argv[i + 1])
                 if m is None:
                     sys.stderr.write('Error: Incorrect format for filter argument\n')
                     return RET_ERR
@@ -1244,7 +1249,7 @@ def revert_h(argv, svn, out, config):
     if len(argv) == 0:
         # do not handle if no targets are passed
         return RET_REEXEC
-    if len(filter(lambda x: x.startswith('-'), argv)) != 0:
+    if any(x.startswith('-') for x in argv):
         # do not handle if any options are passed
         Popen([svn, 'revert'] + argv).wait()
         return RET_OK
@@ -1664,7 +1669,9 @@ def checkout_h(argv, svn, out, config):
     co_url = argv[-1].rstrip('/')
     if re.search(r'://.*/trunk$', co_url):
         argv += [co_url.split("/")[-2]]
-    Popen([svn] + argv, stdout=out).wait()
+    p = Popen([svn] + argv, stdout=PIPE)
+    filter_update(p.stdout, out)
+    p.wait()
     return RET_OK
 
 def clean_h(argv, svn, out, config):
@@ -1761,9 +1768,9 @@ def do_cmd(argv, realsvn, config, expand=True):
             # alias is a python function, call it
             alias(argv)
             return
-        elif type(alias) == types.StringType:
+        elif isinstance(alias, str):
             argv = [alias] + argv[1:]
-        elif type(alias) == types.ListType:
+        elif isinstance(alias, list):
             argv = alias + argv[1:]
         else:
             sys.stderr.write('Unsupported type for alias "%s"\n' % alias)
@@ -1891,7 +1898,7 @@ def main(argv):
     try:
         # set up execution environment for user-defined function aliases
         def do(cmd, expand=True):
-            if type(cmd) == types.StringType:
+            if isinstance(cmd, str):
                 cmd = [cmd]
             do_cmd(cmd, realsvn, config, expand)
         config['do'] = do
