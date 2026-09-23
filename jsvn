@@ -1669,7 +1669,9 @@ def checkout_h(argv, svn, out, config):
     co_url = argv[-1].rstrip('/')
     if re.search(r'://.*/trunk$', co_url):
         argv += [co_url.split("/")[-2]]
-    Popen([svn] + argv, stdout=out).wait()
+    p = Popen([svn] + argv, stdout=PIPE)
+    filter_update(p.stdout, out)
+    p.wait()
     return RET_OK
 
 def clean_h(argv, svn, out, config):
